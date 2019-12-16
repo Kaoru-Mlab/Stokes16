@@ -1322,11 +1322,11 @@ int Stokes_mod(int *sequence, double *S_data){
 }
 
 void catch_Symbol(double *S_data, int bitStream, int num){
-		int i;
-		int SymbolStream[num];			//0~8のシンボル列
-		int binary;
+	int i;
+	int SymbolStream[num];			//0~8のシンボル列
+	int binary;
 
-		for(i=0 ; i<num ; i++){
+	for(i=0 ; i<num ; i++){
 			if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 0;
 
 			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 1;
@@ -1367,16 +1367,12 @@ void catch_Symbol(double *S_data, int bitStream, int num){
 		}
 
 		//シンボル列からビット列
-		for(i=0;i<num;i++){
-			for(j=0;j<4;j++){
-    	 	bitStream[4*i+(3-j)] = ( SymbolStream[i] % 2 ) ;
-    		SymbolStream[i] /= 2;
-			}
+	for(i=0;i<num;i++){
+		for(j=0;j<4;j++){
+  	 	bitStream[4*i+(3-j)] = ( SymbolStream[i] % 2 ) ;
+  		SymbolStream[i] /= 2;
 		}
-
-		return;
-  }
+	}
 
 	return;
-
 }
