@@ -59,6 +59,11 @@
 #define CENTER_FREQ	((double)C_SPEED / CN_WAVE)		//中心周波数
 #define PMD_SEED (2)
 
+#define CONST_D (0.631475730333305)				//ポアンカレ球に内接する、正十二面体の内接する、正二十面体の、原点から面の距離ｄ（各面の方程式の定数項）
+#define CONST_A (0.577350269189626)				//面の方程式の定数A
+#define CONST_B (0.577350269189626)				//面の方程式の定数B
+#define CONST_C (0.577350269189626)				//面の方程式の定数C = 1/sqrt(3)
+
 double dBm;							//入射パワー[dBm]
 double POWER_LAUNCH;	//入射パワー[mW]
 double S0;	//全光パワー[W]
@@ -88,7 +93,7 @@ void THERMALnoise(double *S_data, int noise_seed, int flag);
 int FIR_filter(double *S_aft, double *_pre);
 int DEL_TSYMBOL(double *S_data);
 int Stokes_mod(int *sequence, double *S_data);
-void catch_Symbol(double *S_data, int Symbol)
+void catch_Symbol(double *S_data, int Symbol, int num);
 
 
 int main()
@@ -1316,6 +1321,62 @@ int Stokes_mod(int *sequence, double *S_data){
 	return 0;
 }
 
-void catch_Symbol(double *S_data, int Symbol){
-	
+void catch_Symbol(double *S_data, int bitStream, int num){
+		int i;
+		int SymbolStream[num];			//0~8のシンボル列
+		int binary;
+
+		for(i=0 ; i<num ; i++){
+			if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 0;
+
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 1;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 2;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 3;
+
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 4;
+
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 5;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 6;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 7;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 8;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 9;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 10;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 11;
+
+			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 12;
+
+			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 13;
+
+			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 14;
+
+			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 15;
+
+			else {
+				SymbolStream[i] = 0;
+				printf("catch Symbol error!! \n S0: %lf, S1: %lf, S2:% lf, S3: %lf\n",S_data[4*i+0],S_data[4*i+1],S_data[4*i+2],S_data[4*i+3]);
+			}
+
+		}
+
+		//シンボル列からビット列
+		for(i=0;i<num;i++){
+			for(j=0;j<4;j++){
+    	 	bitStream[4*i+(3-j)] = ( SymbolStream[i] % 2 ) ;
+    		SymbolStream[i] /= 2;
+			}
+		}
+
+		return;
+  }
+
+	return;
+
 }
