@@ -59,6 +59,11 @@
 #define CENTER_FREQ	((double)C_SPEED / CN_WAVE)		//中心周波数
 #define PMD_SEED (2)
 
+#define CONST_D (0.631475730333305)				//ポアンカレ球に内接する、正十二面体の内接する、正二十面体の、原点から面の距離ｄ（各面の方程式の定数項）
+#define CONST_A (0.577350269189626)				//面の方程式の定数A
+#define CONST_B (0.577350269189626)				//面の方程式の定数B
+#define CONST_C (0.577350269189626)				//面の方程式の定数C = 1/sqrt(3)
+
 double dBm;							//入射パワー[dBm]
 double POWER_LAUNCH;	//入射パワー[mW]
 double S0;	//全光パワー[W]
@@ -88,6 +93,8 @@ void THERMALnoise(double *S_data, int noise_seed, int flag);
 int FIR_filter(double *S_aft, double *_pre);
 int DEL_TSYMBOL(double *S_data);
 int Stokes_mod(int *sequence, double *S_data);
+void catch_Symbol(double *S_data, int *bitStream, int num);
+int calc_error(int *tx_bit, int *rx_bit);
 
 
 int main()
@@ -168,7 +175,7 @@ int main()
 
 			int step_lp,tap_lp,sft_lp;
 			double evm;
-			int rece_bit[N_BIT];									// 受信ビット列
+			int rece_bit[DATA_BIT];									// 受信ビット列
 			int error_bit;											//　エラービットの数
 			double BER;
 
@@ -269,16 +276,15 @@ int main()
 
 
 				//ストークスから便と列に直し、エラービットを数える
-				// Stokes_mod(rece_bit,S_FIRed_rx);
-				//
-				// error_bit += calc_error(bitStream, rece_bit);
-				// printf("error bit : %d\n",error_bit);
-				// }
-				//
+				catch_Symbol(S_FIRed_rx,rece_bit,DATA_SYMBOL);
+
+				error_bit += calc_error(bitStream, rece_bit);
+				printf("error bit : %d\n",error_bit);
 
 			}
-			// BER = log10((double)error_bit / (double)(DATA_BIT * (loop_end-1)));
-			//("logBER : %.2f\n",BER);
+
+			BER = log10((double)error_bit / (double)(DATA_BIT * (loop_end-1)));
+			("logBER : %.2f\n",BER);
 
 
 			//SNRの導出
@@ -289,15 +295,10 @@ int main()
 
 
 			//BERの格納
-			//ber_stock[k] = BER;
-			//evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
-			//evm = 0.0;
-			//evm_sum = 0.0;
-
-
-
-			//error_bit = 0.0;
-
+			ber_stock[k] = BER;
+			// evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
+			// evm = 0.0;
+			// evm_sum = 0.0;
 
 			free(S_parameter_tx);
 			free(S_parameter_rx);
@@ -316,7 +317,7 @@ int main()
 
 
 			//エラービットの初期化
-			//error_bit = 0.0;
+			error_bit = 0.0;
 		}//kループの閉じ
 		//	snprintf(filename,1024,"Sift_%d,BER_result.csv",a);
 		//	CSV_6(k,SN_ratio,ber_stock,evm_ave,filename);
@@ -1313,4 +1314,74 @@ int Stokes_mod(int *sequence, double *S_data){
 	}
 
 	return 0;
+}
+
+void catch_Symbol(double *S_data, int *bitStream, int num){
+	int i,j;
+	int SymbolStream[num];			//0~8のシンボル列
+	int binary;
+	int SymbolTemp;
+
+	for(i=0 ; i<num ; i++){
+			if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 0;
+
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 1;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 2;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 3;
+
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 4;
+
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 5;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 6;
+
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 7;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 8;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 9;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 10;
+
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 11;
+
+			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 12;
+
+			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 13;
+
+			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 14;
+
+			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 15;
+
+			else {
+				SymbolStream[i] = 0;
+				printf("catch Symbol error!! \n S0: %lf, S1: %lf, S2:% lf, S3: %lf\n",S_data[4*i+0],S_data[4*i+1],S_data[4*i+2],S_data[4*i+3]);
+			}
+
+		}
+
+		//シンボル列からビット列
+	for(i=0;i<num;i++){
+		SymbolTemp = SymbolStream[i];
+		for(j=0;j<4;j++){
+  	 	bitStream[4*i+(3-j)] = ( SymbolTemp % 2 ) ;
+  		SymbolTemp /= 2;
+		}
+	}
+
+	return;
+}
+
+int calc_error(int *tx_bit, int *rx_bit){
+	int i;
+	int error = 0;
+
+	for(i = 0 ; i < DATA_BIT ; i++){
+		if(tx_bit[i + TR_BIT] != rx_bit[i]) error += 1;
+	}
+
+	printf("Toral bit:\t%d, ERROR: \t%d\n",DATA_BIT, error);
+	return error;
 }
