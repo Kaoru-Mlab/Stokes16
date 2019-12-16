@@ -88,6 +88,7 @@ void THERMALnoise(double *S_data, int noise_seed, int flag);
 int FIR_filter(double *S_aft, double *_pre);
 int DEL_TSYMBOL(double *S_data);
 int Stokes_mod(int *sequence, double *S_data);
+void catch_Symbol(double *S_data, int Symbol)
 
 
 int main()
@@ -1313,4 +1314,8 @@ int Stokes_mod(int *sequence, double *S_data){
 	}
 
 	return 0;
+}
+
+void catch_Symbol(double *S_data, int Symbol){
+	
 }
