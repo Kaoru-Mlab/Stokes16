@@ -93,7 +93,7 @@ void THERMALnoise(double *S_data, int noise_seed, int flag);
 int FIR_filter(double *S_aft, double *_pre);
 int DEL_TSYMBOL(double *S_data);
 int Stokes_mod(int *sequence, double *S_data);
-void catch_Symbol(double *S_data, int Symbol, int num);
+void catch_Symbol(double *S_data, int *bitStream, int num);
 
 
 int main()
@@ -1315,10 +1315,11 @@ int Stokes_mod(int *sequence, double *S_data){
 	return 0;
 }
 
-void catch_Symbol(double *S_data, int bitStream, int num){
-	int i;
+void catch_Symbol(double *S_data, int *bitStream, int num){
+	int i,j;
 	int SymbolStream[num];			//0~8のシンボル列
 	int binary;
+	int SymbolTemp;
 
 	for(i=0 ; i<num ; i++){
 			if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 0;
@@ -1362,9 +1363,10 @@ void catch_Symbol(double *S_data, int bitStream, int num){
 
 		//シンボル列からビット列
 	for(i=0;i<num;i++){
+		SymbolTemp = SymbolStream[i];
 		for(j=0;j<4;j++){
-  	 	bitStream[4*i+(3-j)] = ( SymbolStream[i] % 2 ) ;
-  		SymbolStream[i] /= 2;
+  	 	bitStream[4*i+(3-j)] = ( SymbolTemp % 2 ) ;
+  		SymbolTemp /= 2;
 		}
 	}
 
