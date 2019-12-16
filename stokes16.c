@@ -94,7 +94,7 @@ int FIR_filter(double *S_aft, double *_pre);
 int DEL_TSYMBOL(double *S_data);
 int Stokes_mod(int *sequence, double *S_data);
 void catch_Symbol(double *S_data, int *bitStream, int num);
-int calc_error(int *tx_bit, int rx_bit);
+int calc_error(int *tx_bit, int *rx_bit);
 
 
 int main()
@@ -1374,12 +1374,12 @@ void catch_Symbol(double *S_data, int *bitStream, int num){
 	return;
 }
 
-int calc_error(int *tx_bit, int rx_bit){
+int calc_error(int *tx_bit, int *rx_bit){
 	int i;
 	int error = 0;
 
 	for(i = 0 ; i < DATA_BIT ; i++){
-		if(tx_bit[i + TR_BIT] != rx_bit) error += 1;
+		if(tx_bit[i + TR_BIT] != rx_bit[i]) error += 1;
 	}
 
 	printf("Toral bit:\t%d, ERROR: \t%d\n",DATA_BIT, error);
