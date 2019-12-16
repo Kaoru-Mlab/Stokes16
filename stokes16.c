@@ -174,7 +174,7 @@ int main()
 
 			int step_lp,tap_lp,sft_lp;
 			double evm;
-			int rece_bit[N_BIT];									// 受信ビット列
+			int rece_bit[DATA_BIT];									// 受信ビット列
 			int error_bit;											//　エラービットの数
 			double BER;
 
@@ -275,16 +275,15 @@ int main()
 
 
 				//ストークスから便と列に直し、エラービットを数える
-				// Stokes_mod(rece_bit,S_FIRed_rx);
-				//
-				// error_bit += calc_error(bitStream, rece_bit);
-				// printf("error bit : %d\n",error_bit);
-				// }
-				//
+				catch_Symbol(S_FIRed_rx,rece_bit,DATA_SYMBOL);
+
+				error_bit += calc_error(bitStream, rece_bit);
+				printf("error bit : %d\n",error_bit);
 
 			}
-			// BER = log10((double)error_bit / (double)(DATA_BIT * (loop_end-1)));
-			//("logBER : %.2f\n",BER);
+
+			BER = log10((double)error_bit / (double)(DATA_BIT * (loop_end-1)));
+			("logBER : %.2f\n",BER);
 
 
 			//SNRの導出
@@ -295,15 +294,10 @@ int main()
 
 
 			//BERの格納
-			//ber_stock[k] = BER;
-			//evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
-			//evm = 0.0;
-			//evm_sum = 0.0;
-
-
-
-			//error_bit = 0.0;
-
+			ber_stock[k] = BER;
+			// evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
+			// evm = 0.0;
+			// evm_sum = 0.0;
 
 			free(S_parameter_tx);
 			free(S_parameter_rx);
@@ -322,7 +316,7 @@ int main()
 
 
 			//エラービットの初期化
-			//error_bit = 0.0;
+			error_bit = 0.0;
 		}//kループの閉じ
 		//	snprintf(filename,1024,"Sift_%d,BER_result.csv",a);
 		//	CSV_6(k,SN_ratio,ber_stock,evm_ave,filename);
