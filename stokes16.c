@@ -24,7 +24,7 @@
 #define ROLLOFF_FACTOR_RO (2)
 #define BAND_RATE_ROLLOFF (0.05)
 
-#define DIST_Z	(5.0E+3)
+#define DIST_Z	(1.0E+3)
 #define DIST_H	(1.0E+2)
 #define SSFM_COUNT	((int)DIST_Z) / ((int)DIST_H)
 #define SENSITIVITY	(0.6)
@@ -101,11 +101,11 @@ int main()
 {
 	printf(" main ok\n DIST: %.2e\n flag_SHOT: %d\n flag_THERMAL: %d\n",DIST_Z,flag_SHOT,flag_THERMAL);
 	int end,k;
-	end = 3;				//////変えた
+	end = 1;				//////変えた
 	double* ber_stock = (double*)malloc(sizeof(double) * N_SYMBOL);
 	int a=0;
 	int loop;
-	int loop_end = 3;					//変えた
+	int loop_end = 1;					//変えた
 	double progress;
 	double evm_sum = 0.0;
 	double evm_ave[100];
@@ -943,6 +943,7 @@ void Stokes_nomal(double *S_data, double *S_nomal, int num){
 	return ;
 }
 
+
 void Sample(double *analogData,double *digitData, int n){
 	int i = 0;
 	int j = 0;
@@ -1134,7 +1135,7 @@ int FIR_filter(double *S_aft, double *S_pre){
 
 	double ueS11,ueS12,ueS13,ueS21,ueS22,ueS23,ueS31,ueS32,ueS33;
 
-	double* FIR_S = (double*)malloc(sizeof(double) * TR_SYMBOL *3);  //各入力信号
+	double* FIR_S = (double*)malloc(sizeof(double) * N_SYMBOL *3);  //各入力信号
 
 	double *H_11 = (double*)malloc(sizeof(double)*LMS_TAP);		// 各フィルタ係数
 	double *H_12 = (double*)malloc(sizeof(double)*LMS_TAP);
@@ -1242,9 +1243,9 @@ int FIR_filter(double *S_aft, double *S_pre){
 		// 本信号のみに適応
 		for (i = TR_SYMBOL; i < N_SYMBOL; i++)
 		{
-			FIR_S[0] = S_aft[4*i +1];
-			FIR_S[1] = S_aft[4*i +2];
-			FIR_S[2] = S_aft[4*i +3];
+			FIR_S[3*i+0] = S_aft[4*i +1];
+			FIR_S[3*i+1] = S_aft[4*i +2];
+			FIR_S[3*i+2] = S_aft[4*i +3];
 			h1 = 0.0;
 			h2 = 0.0;
 			h3 = 0.0;
@@ -1259,6 +1260,7 @@ int FIR_filter(double *S_aft, double *S_pre){
 			S_aft[4*i +1] = h1;
 			S_aft[4*i +2] = h2;
 			S_aft[4*i +3] = h3;
+
 
 			//データシフト
 
