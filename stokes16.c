@@ -24,7 +24,7 @@
 #define ROLLOFF_FACTOR_RO (2)
 #define BAND_RATE_ROLLOFF (0.05)
 
-#define DIST_Z	(1.0E+3)
+#define DIST_Z	(0.0)
 #define DIST_H	(1.0E+2)
 #define SSFM_COUNT	((int)DIST_Z) / ((int)DIST_H)
 #define SENSITIVITY	(0.6)
@@ -33,11 +33,11 @@
 
 #define STEP_COEF   (0.1)
 #define STEP_MIN	(1)
-#define STEP_MAX	(3)
+#define STEP_MAX	(1)
 #define TAP_MIN		(1)
-#define TAP_MAX		(3)
+#define TAP_MAX		(1)
 #define SFT_MIN		(0)
-#define SFT_MAX		(2)				/////////ここ変えた
+#define SFT_MAX		(0)				/////////ここ変えた
 
 #define STEP_NUM	(STEP_MAX-STEP_MIN+1)		// int型、EVM変数格納配列数
 #define TAP_NUM		(TAP_MAX-TAP_MIN+1)
@@ -59,14 +59,15 @@
 #define CENTER_FREQ	((double)C_SPEED / CN_WAVE)		//中心周波数
 #define PMD_SEED (2)
 
-#define CONST_D (0.631475730333305)				//ポアンカレ球に内接する、正十二面体の内接する、正二十面体の、原点から面の距離ｄ（各面の方程式の定数項）
+//#define CONST_D (0.794654472291766)				//ポアンカレ球に内接する、正十二面体の内接する、正二十面体の、原点から面の距離ｄ（各面の方程式の定数項）
+#define CONST_D (0.93)
 #define CONST_A (0.577350269189626)				//面の方程式の定数A
 #define CONST_B (0.577350269189626)				//面の方程式の定数B
 #define CONST_C (0.577350269189626)				//面の方程式の定数C = 1/sqrt(3)
 
 double dBm;							//入射パワー[dBm]
-double POWER_LAUNCH;	//入射パワー[mW]
-double S0;	//全光パワー[W]
+double POWER_LAUNCH;	//入射パワー[W]
+double S0;	//全光パワー[mW]
 
 int LMS_TAP;
 int SFT_SYMBOL;
@@ -95,6 +96,8 @@ int DEL_TSYMBOL(double *S_data);
 int Stokes_mod(int *sequence, double *S_data);
 void catch_Symbol(double *S_data, int *bitStream, int num);
 int calc_error(int *tx_bit, int *rx_bit);
+void catchArea(double *S_data);
+void CSV_6(int number,int start, double *data1, double *data2 ,double *data3,char *filename);
 
 
 int main()
@@ -105,7 +108,7 @@ int main()
 	double* ber_stock = (double*)malloc(sizeof(double) * N_SYMBOL);
 	int a=0;
 	int loop;
-	int loop_end = 1;					//変えた
+	int loop_end = 2;					//変えた
 	double progress;
 	double evm_sum = 0.0;
 	double evm_ave[100];
@@ -125,7 +128,7 @@ int main()
 			printf("k loop ok\n");
 
 
-			dBm = (5.0 * (double)k) - 20.0; //入射パワー[dBm]
+			dBm = (5.0 * (double)k) - 0.0; //入射パワー[dBm]
 			POWER_LAUNCH = ((1.0e-3) * pow(10.0,dBm/10.0));	//[W]
 			S0 = POWER_LAUNCH * 1000; //[mW]
 
@@ -139,17 +142,19 @@ int main()
 			double* fil_S = (double*)malloc(sizeof(double)* N_SYMBOL *4);
 			double* fil_S_nomaled = (double*)malloc(sizeof(double)* N_SYMBOL *4);
 			double* S_FIRed_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
-			double* S_FIRed_normaled_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+			double* S_FIRed_nomaled_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+			double* S_FIRed_DATA = (double*)malloc(sizeof(double)* DATA_SYMBOL *4);
+			double* S_FIRed_DATA_nomaled = (double*)malloc(sizeof(double)* DATA_SYMBOL *4);
 			double* E_sym = (double*)malloc(sizeof(double) * N_SYMBOL *4);								//xy偏波パラメータ　0~1:Exre,Exim,Eyre,Eyim
 			double* E_analog = (double*)malloc(sizeof(double) * P_ANALOG * 4);
 			double* O_analog = (double*)malloc(sizeof(double) * P_ANALOG * 4);
 			double* E_analog_rx = (double*)malloc(sizeof(double) * P_ANALOG * 4);
 			double* S_analog_rx = (double*)malloc(sizeof(double) * P_ANALOG * 4);
 			double* E_sym_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+			double* S_temp_nomaled = (double*)malloc(sizeof(double) * N_SYMBOL *4);
+			double* Sana_temp_nomaled = (double*)malloc(sizeof(double)* P_ANALOG *4);
 			int bit;
-			double frequency_x_re[P_ANALOG],frequency_x_im[P_ANALOG],frequency_y_re[P_ANALOG],frequency_y_im[P_ANALOG];
 			double rxdigit_x_re[N_SYMBOL],rxdigit_x_im[N_SYMBOL],rxdigit_y_re[N_SYMBOL],rxdigit_y_im[N_SYMBOL];								//受信シンボル
-			double s0[N_SYMBOL],s1[N_SYMBOL],s2[N_SYMBOL],s3[N_SYMBOL];														//受信コンスタ
 			double y[N_SYMBOL];
 			double rxdigit_y, rxdigit_x;																															//受信x,yパワー
 			double power_rx=0.0;																																		//受信パワー
@@ -184,6 +189,8 @@ int main()
 
 			//BER loop
 			for(loop = 0; loop < loop_end; loop++){
+				progress = ((((double)a * (double)k * (double)loop_end)+((double)k * (double)loop_end) + (double)loop + 1.0) / ((double)end * (double)loop_end) * 17.0) * 100;
+				printf("Progress Status : %.2f%%\n", progress);
 
 				printf("loop ok %d\n",loop);
 
@@ -220,12 +227,20 @@ int main()
 				EtoS(E_analog_rx,S_analog_rx);
 					strcpy(filename,"07_rx_StokesAnalog.csv");
 					CSV_5(filename,P_ANALOG,S_analog_rx);
+					Stokes_nomal(S_analog_rx,Sana_temp_nomaled,P_ANALOG);
+					strcpy(filename,"07_2_rx_StokesAnalog.csv");
+					CSV_5(filename,P_ANALOG,Sana_temp_nomaled);
 
 				//熱雑音
 				THERMALnoise(S_analog_rx,noise_seed,flag_THERMAL);
 				if(flag_THERMAL == 1){
 					strcpy(filename,"08_rxTHERMALed_StokesAnalog.csv");
 					CSV_5(filename,P_ANALOG,S_analog_rx);
+					Stokes_nomal(S_analog_rx,Sana_temp_nomaled,P_ANALOG);
+					strcpy(filename,"08_2_rxTHERMALed_StokesAnalog.csv");
+					CSV_5(filename,DATA_SYMBOL,Sana_temp_nomaled);
+					//catch_Symbolの範囲をプロットする
+					if(k==0)catchArea(Sana_temp_nomaled);
 				}
 
 				//サンプリング(a点だけずらす)
@@ -246,37 +261,39 @@ int main()
 							LMS_TAP = tap_lp;
 							SFT_SYMBOL = sft_lp;
 
-							printf("STEP: %.2f\nTAP: %d\nSFT: %d\n",LMS_STEP,tap_lp,sft_lp);
+							printf("STEP: %.2f, TAP: %d, SFT: %d\n",LMS_STEP,tap_lp,sft_lp);
 
 							memcpy(fil_S, S_parameter_rx, sizeof(double) * N_SYMBOL *4);
 
 							FIR_filter(fil_S, S_parameter_tx);
 						}
 					}
-					printf("%d\n",step_lp);
+					printf("step:%d\n",step_lp);
 				}
 
-				memcpy(S_FIRed_rx, fil_S, sizeof(double) * N_SYMBOL *4);
-					Stokes_nomal(fil_S,fil_S_nomaled,N_SYMBOL);
+				memcpy(S_FIRed_rx, fil_S, sizeof(double) * N_SYMBOL *4); // W/O FIRにつき、変更。
+					Stokes_nomal(S_FIRed_rx,S_FIRed_nomaled_rx,N_SYMBOL);
 					strcpy(filename,"11_rx_FIRedStokes.csv");
-					CSV_5(filename,N_SYMBOL,fil_S_nomaled);
+					CSV_5(filename,N_SYMBOL,S_FIRed_nomaled_rx);
 
 				//データシンボルのみ取り出す
 				DEL_TSYMBOL(S_FIRed_rx);
-					memcpy(S_FIRed_rx, fil_S, sizeof(double) * N_SYMBOL *4);
-					Stokes_nomal(fil_S,fil_S_nomaled,N_SYMBOL);
+					memcpy(S_FIRed_DATA, S_FIRed_rx, sizeof(double) * DATA_SYMBOL *4);
+					Stokes_nomal(S_FIRed_DATA,S_FIRed_DATA_nomaled,DATA_SYMBOL);
 					strcpy(filename,"12_rx_DataSymbol.csv");
-					CSV_5(filename,DATA_SYMBOL,fil_S_nomaled);
+					CSV_5(filename,DATA_SYMBOL,S_FIRed_DATA_nomaled);
 
 				if(loop == loop_end - 1){
-					Stokes_nomal(S_FIRed_rx,S_FIRed_normaled_rx, DATA_SYMBOL);
+					Stokes_nomal(S_FIRed_DATA,S_FIRed_DATA_nomaled, DATA_SYMBOL);
 					snprintf(filename,1024,"13_Sift_%d,TR_%d,step_%.2f_%.1fkm_%.1fdBm.csv",a,TR_SYMBOL,LMS_STEP,DIST_Z/1000.0,dBm);
-					CSV_5(filename,DATA_SYMBOL,S_FIRed_normaled_rx);
+					CSV_5(filename,DATA_SYMBOL,S_FIRed_DATA_nomaled);
 				}
 
 
+
+
 				//ストークスから便と列に直し、エラービットを数える
-				catch_Symbol(S_FIRed_rx,rece_bit,DATA_SYMBOL);
+				catch_Symbol(S_FIRed_DATA_nomaled,rece_bit,DATA_SYMBOL);
 
 				error_bit += calc_error(bitStream, rece_bit);
 				printf("error bit : %d\n",error_bit);
@@ -284,7 +301,7 @@ int main()
 			}
 
 			BER = log10((double)error_bit / (double)(DATA_BIT * (loop_end-1)));
-			("logBER : %.2f\n",BER);
+			printf("logBER : %.2f\n",BER);
 
 
 			//SNRの導出
@@ -296,7 +313,7 @@ int main()
 
 			//BERの格納
 			ber_stock[k] = BER;
-			// evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
+			evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
 			// evm = 0.0;
 			// evm_sum = 0.0;
 
@@ -304,7 +321,9 @@ int main()
 			free(S_parameter_rx);
 			free(S_normaled_preFIR_rx);
 			free(S_FIRed_rx);
-			free(S_FIRed_normaled_rx);
+			free(S_FIRed_nomaled_rx);
+			free(S_FIRed_DATA);
+			free(S_FIRed_DATA_nomaled);
 			free(fil_S);
 			free(fil_S_nomaled);
 			free(E_sym);
@@ -314,13 +333,15 @@ int main()
 			free(E_sym_rx);
 			free(filter);
 			free(save_deltabeta);
+			free(S_temp_nomaled);
+			free(Sana_temp_nomaled);
 
 
 			//エラービットの初期化
 			error_bit = 0.0;
 		}//kループの閉じ
-		//	snprintf(filename,1024,"Sift_%d,BER_result.csv",a);
-		//	CSV_6(k,SN_ratio,ber_stock,evm_ave,filename);
+		snprintf(filename,1024,"%dkm_Sift_%d,BER_result.csv",(int)DIST_Z/1000,a);
+		CSV_6(k,0,SN_ratio,ber_stock,evm_ave,filename);
 
 	}//aループの閉じ
 
@@ -411,9 +432,9 @@ void map(int *bitStream, double *S_digit){
 		S_digit[4*i +0] = 1;
 		if(bit==0)
 		{
-			S_digit[4*i +1] = 1/sqrt(3);
-			S_digit[4*i +2] = 1/sqrt(3);
-			S_digit[4*i +3] = 1/sqrt(3);
+			S_digit[4*i +1] = 1/sqrt(3.0);
+			S_digit[4*i +2] = 1/sqrt(3.0);
+			S_digit[4*i +3] = 1/sqrt(3.0);
 		}
 		else if(bit==1)
 		{
@@ -1080,7 +1101,7 @@ void THERMALnoise(double *S_data, int noise_seed, int flag){
 	}
 
 	int i;
-	static int gaussian_seed=0;			// ガウス分布のシード
+	static int gaussian_seed = 0;			// ガウス分布のシード
 	double* gaussian_rand = (double*)malloc(sizeof(double)*P_ANALOG *3);	// Sパラメータガウス分布の乱数格納
 	double thermal_value[3];				//ASE雑音の値
 	double thermal_sigma;						//ASE雑音の標準偏差
@@ -1097,17 +1118,19 @@ void THERMALnoise(double *S_data, int noise_seed, int flag){
 	for(i=0;i<P_ANALOG;i++){
 		gaussian_rand[3 * i +0] = gaussian(mu,sigma);
 	}
-	srand(gaussian_seed * 8192 + noise_seed);
+	srand(gaussian_seed + 8192 + noise_seed);
 	for(i=0;i<P_ANALOG;i++){
 		gaussian_rand[3 * i +1] = gaussian(mu,sigma);
 	}
-	srand(gaussian_seed * 16384 + noise_seed);
+	srand(gaussian_seed + 16384 + noise_seed);
 	for(i=0;i<P_ANALOG;i++){
 		gaussian_rand[3 * i +2] = gaussian(mu,sigma);
 	}
+	gaussian_seed++;
 
-	thermal_sigma = sqrt(4.0 + BOLTZMAN * TEMPRATURE * RATE_BAUD / (2.0 * RESISTANCE));
+	thermal_sigma = sqrt(4.0 * BOLTZMAN * TEMPRATURE * RATE_BAUD / (2.0 * RESISTANCE));
 	printf("thermal noise = %e[A]\n",thermal_sigma);
+	printf("gaussian_rand = %e\n",gaussian_rand[0]);
 
 	//ASE雑音
 	for(i=0;i<P_ANALOG;i++){
@@ -1115,11 +1138,11 @@ void THERMALnoise(double *S_data, int noise_seed, int flag){
 		thermal_value[1] = thermal_sigma * gaussian_rand[3 * i + 1] + thermal_ave;
 		thermal_value[2] = thermal_sigma * gaussian_rand[3 * i + 2] + thermal_ave;
 
-		S_data[3 * i + 1] += thermal_value[0];
-		S_data[3 * i + 2] += thermal_value[1];
-		S_data[3 * i + 3] += thermal_value[2];
+		S_data[4 * i + 1] += thermal_value[0];
+		S_data[4 * i + 2] += thermal_value[1];
+		S_data[4 * i + 3] += thermal_value[2];
 
-		S_data[3 * i + 0] = sqrt(S_data[3 * i + 1] * S_data[3 * i + 1] + S_data[3 * i + 2] *S_data[3 * i + 2] + S_data[3 * i + 3] * S_data[3 * i + 3]);
+		S_data[4 * i + 0] = sqrt((S_data[4 * i + 1] * S_data[4 * i + 1]) + (S_data[4 * i + 2] *S_data[4 * i + 2]) + (S_data[4 * i + 3] * S_data[4 * i + 3]));
 	}
 
 	free(gaussian_rand);
@@ -1128,6 +1151,9 @@ void THERMALnoise(double *S_data, int noise_seed, int flag){
 }
 
 int FIR_filter(double *S_aft, double *S_pre){
+	return 0;
+	printf("hello! its return error!!\nHAHA!!\n");
+
 	int i,j,k;
 	double dpwr_x, dpwr_y;
 
@@ -1147,7 +1173,7 @@ int FIR_filter(double *S_aft, double *S_pre){
 	double *H_32 = (double*)malloc(sizeof(double)*LMS_TAP);
 	double *H_33 = (double*)malloc(sizeof(double)*LMS_TAP);
 
-	double e_S[3];	//誤差(ストークス)
+	double e_S[3] = {0,0,0};	//誤差(ストークス)
 	double e_E[4];	//誤差
 	double ue_S[3] = {0,0,0};
 	double ue_E[4];
@@ -1172,8 +1198,8 @@ int FIR_filter(double *S_aft, double *S_pre){
 
 	//FIR応答処理
 
-	for(i=0; i<TR_SYMBOL; i++){
-		FIR_S[0] = S_aft[4*i +1];	// 各入力信号
+	for(i=0; i < TR_SYMBOL; i++){
+		FIR_S[0] = S_aft[4*i +1];	// 本信号をサンプルしたやつ
 		FIR_S[1] = S_aft[4*i +2];
 		FIR_S[2] = S_aft[4*i +3];
 
@@ -1182,15 +1208,15 @@ int FIR_filter(double *S_aft, double *S_pre){
 		h3 = 0.0;
 
 		for(j = 0; j<LMS_TAP; j++){
-			h1 += (H_11[j] * FIR_S[4*j +1]) + (H_21[j] * FIR_S[4*j +2]) + (H_31[j] * FIR_S[4*j +3]);//最初は0
-			h2 += (H_12[j] * FIR_S[4*j +1]) + (H_22[j] * FIR_S[4*j +2]) + (H_32[j] * FIR_S[4*j +3]);
-			h3 += (H_13[j] * FIR_S[4*j +1]) + (H_23[j] * FIR_S[4*j +2]) + (H_33[j] * FIR_S[4*j +3]);
+			h1 += (H_11[j] * FIR_S[3*j +0]) + (H_21[j] * FIR_S[3*j +1]) + (H_31[j] * FIR_S[3*j +2]);//最初は0
+			h2 += (H_12[j] * FIR_S[3*j +0]) + (H_22[j] * FIR_S[3*j +1]) + (H_32[j] * FIR_S[3*j +2]);
+			h3 += (H_13[j] * FIR_S[3*j +0]) + (H_23[j] * FIR_S[3*j +1]) + (H_33[j] * FIR_S[3*j +2]);
 		}
 
 		if(i>= SFT_SYMBOL){
-			e_S[0] = S_pre[4*(i - SFT_SYMBOL)] -h1;
-			e_S[1] = S_pre[4*(i - SFT_SYMBOL)] -h2;
-			e_S[2] = S_pre[4*(i - SFT_SYMBOL)] -h3;
+			e_S[0] = S_pre[4*(i - SFT_SYMBOL)+1] - h1;
+			e_S[1] = S_pre[4*(i - SFT_SYMBOL)+2] - h2;
+			e_S[2] = S_pre[4*(i - SFT_SYMBOL)+3] - h3;
 
 			ue_S[0] = e_S[0] * LMS_STEP;
 			ue_S[1] = e_S[1] * LMS_STEP;
@@ -1235,40 +1261,46 @@ int FIR_filter(double *S_aft, double *S_pre){
 			FIR_S[3*j+1] = FIR_S[3*(j-1)+1];
 			FIR_S[3*j+2] = FIR_S[3*(j-1)+2];
 		}
-		}
+
+		/*if(i>=0 && i<=10){
+			printf("%d, h1:%f, e_S:%f,S1_pre:%f, ue_S[0]:%f, ueS11:%f\n",i,h1,e_S[0],S_pre[4*(i - SFT_SYMBOL)+1],ue_S[0],ueS11);
+		}*/
+	}
+
+
 
 		//最終的にTR_SYMBOLをすべて回した上でこちらに来る
 
 		// 係数を用いて、ペイロードのフィルタリングを適用
 		// 本信号のみに適応
-		for (i = TR_SYMBOL; i < N_SYMBOL; i++)
+	for (i = TR_SYMBOL; i < N_SYMBOL; i++){
+		FIR_S[0] = S_aft[4*i +1];
+		FIR_S[1] = S_aft[4*i +2];
+		FIR_S[2] = S_aft[4*i +3];
+		h1 = 0.0;
+		h2 = 0.0;
+		h3 = 0.0;
+
+		for (j = 0; j < LMS_TAP; j++)
 		{
-			FIR_S[3*i+0] = S_aft[4*i +1];
-			FIR_S[3*i+1] = S_aft[4*i +2];
-			FIR_S[3*i+2] = S_aft[4*i +3];
-			h1 = 0.0;
-			h2 = 0.0;
-			h3 = 0.0;
+			h1 += (H_11[j] * FIR_S[3*j+0]) + (H_21[j] * FIR_S[3*j+1]) + (H_31[j] * FIR_S[3*j+2]);
+			h2 += (H_12[j] * FIR_S[3*j+0]) + (H_22[j] * FIR_S[3*j+1]) + (H_32[j] * FIR_S[3*j+2]);
+			h3 += (H_13[j] * FIR_S[3*j+0]) + (H_23[j] * FIR_S[3*j+1]) + (H_33[j] * FIR_S[3*j+2]);
 
-			for (j = 0; j < LMS_TAP; j++)
-			{
-				h1 += (H_11[j] * FIR_S[3*j+0]) + (H_21[j] * FIR_S[3*j+1]) + (H_31[j] * FIR_S[3*j+2]);
-				h2 += (H_12[j] * FIR_S[3*j+0]) + (H_22[j] * FIR_S[3*j+1]) + (H_32[j] * FIR_S[3*j+2]);
-				h3 += (H_13[j] * FIR_S[3*j+0]) + (H_23[j] * FIR_S[3*j+1]) + (H_33[j] * FIR_S[3*j+2]);
+		}
 
-			}
-			S_aft[4*i +1] = h1;
-			S_aft[4*i +2] = h2;
-			S_aft[4*i +3] = h3;
+		S_aft[4*i +1] = h1;
+		S_aft[4*i +2] = h2;
+		S_aft[4*i +3] = h3;
 
 
 			//データシフト
 
-			for(j=LMS_TAP - 1; j>0; j--){
-				FIR_S[3*j+0] = FIR_S[3*(j-1)+0];
-				FIR_S[3*j+1] = FIR_S[3*(j-1)+1];
-				FIR_S[3*j+2] = FIR_S[3*(j-1)+2];
-			}
+		for(j=LMS_TAP - 1; j>0; j--){
+			FIR_S[3*j+0] = FIR_S[3*(j-1)+0];
+			FIR_S[3*j+1] = FIR_S[3*(j-1)+1];
+			FIR_S[3*j+2] = FIR_S[3*(j-1)+2];
+		}
 	}
 
 	// メモリ解放
@@ -1281,6 +1313,7 @@ int FIR_filter(double *S_aft, double *S_pre){
 	free(H_31);
 	free(H_32);
 	free(H_33);
+	free(FIR_S);
 
 	return 0;
 
@@ -1325,41 +1358,41 @@ void catch_Symbol(double *S_data, int *bitStream, int num){
 	int SymbolTemp;
 
 	for(i=0 ; i<num ; i++){
-			if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 0;
+			if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D) SymbolStream[i] = 0;
 
-			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 1;
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D) SymbolStream[i] = 1;
 
-			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 2;
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D) SymbolStream[i] = 2;
 
-			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 3;
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D) SymbolStream[i] = 3;
 
-			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 4;
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D) SymbolStream[i] = 4;
 
-			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 5;
+			else if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D) SymbolStream[i] = 5;
 
-			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 6;
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D) SymbolStream[i] = 6;
 
-			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 7;
+			else if(S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D) SymbolStream[i] = 7;
 
-			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 8;
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D) SymbolStream[i] = 8;
 
-			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 9;
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D) SymbolStream[i] = 9;
 
-			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 10;
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D) SymbolStream[i] = 10;
 
-			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 11;
+			else if(S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D) SymbolStream[i] = 11;
 
-			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 12;
+			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D) SymbolStream[i] = 12;
 
-			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 13;
+			else if(S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D) SymbolStream[i] = 13;
 
-			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 14;
+			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D) SymbolStream[i] = 14;
 
-			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D*(-1)) SymbolStream[i] = 15;
+			else if(S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D) SymbolStream[i] = 15;
 
 			else {
-				SymbolStream[i] = 0;
-				printf("catch Symbol error!! \n S0: %lf, S1: %lf, S2:% lf, S3: %lf\n",S_data[4*i+0],S_data[4*i+1],S_data[4*i+2],S_data[4*i+3]);
+				SymbolStream[i] = 16;
+				//printf("catch Symbol error!! \n S0: %lf, S1: %lf, S2:% lf, S3: %lf\n",S_data[4*i+0],S_data[4*i+1],S_data[4*i+2],S_data[4*i+3]);
 			}
 
 		}
@@ -1367,6 +1400,12 @@ void catch_Symbol(double *S_data, int *bitStream, int num){
 		//シンボル列からビット列
 	for(i=0;i<num;i++){
 		SymbolTemp = SymbolStream[i];
+		if(SymbolTemp == 16){
+			for(j=0;j<4;j++){
+				bitStream[4*i+(3-j)] = 2;
+			}
+			continue;
+		}
 		for(j=0;j<4;j++){
   	 	bitStream[4*i+(3-j)] = ( SymbolTemp % 2 ) ;
   		SymbolTemp /= 2;
@@ -1380,10 +1419,88 @@ int calc_error(int *tx_bit, int *rx_bit){
 	int i;
 	int error = 0;
 
+	// printf("tx_bit: ");
+	// for(i = 0; i< DATA_BIT; i++){
+	// 	printf("%d",tx_bit[i+TR_BIT]);
+	// }
+	// printf("\n");
+	// printf("rx_bit: ");
+	// for(i = 0; i< DATA_BIT; i++){
+	// 	printf("%d",tx_bit[i]);
+	// }
+	// printf("\n");
+
 	for(i = 0 ; i < DATA_BIT ; i++){
 		if(tx_bit[i + TR_BIT] != rx_bit[i]) error += 1;
 	}
 
 	printf("Toral bit:\t%d, ERROR: \t%d\n",DATA_BIT, error);
 	return error;
+}
+
+void catchArea(double *S_data){
+	int i;
+	FILE* fp;
+	char *filename;
+	filename = "catchAreaall.csv";
+
+	printf("make csv about \"0\" symbol.\n");
+	fp = fopen(filename,"w");
+	for(i=0;i<DATA_SYMBOL;i++){
+		if(S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*-1/sqrt(3) +S_data[4*i +2]*-1/sqrt(3) + S_data[4*i +3]*-1/sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*0 +S_data[4*i +2]*2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*(1+sqrt(5))/2 /sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*0 +S_data[4*i +2]*-2/(1+sqrt(5))/sqrt(3) + S_data[4*i +3]*-1*(1+sqrt(5))/2 /sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*2/(1+sqrt(5)) /sqrt(3) > CONST_D
+
+		|| S_data[4*i +1]*-1*(1+sqrt(5))/2 /sqrt(3) + S_data[4*i +2]*0 + S_data[4*i +3]*-2/(1+sqrt(5)) /sqrt(3) > CONST_D) {
+			fprintf(fp, "%d,%f,%f,%f,%f\n",i,S_data[4*i+0],S_data[4*i+1],S_data[4*i+2],S_data[4*i+3] );
+		}
+	}
+	fclose(fp);
+	return;
+}
+
+void CSV_6(int number,int start, double *data1, double *data2 ,double *data3,char *filename)
+{
+
+FILE* fp;
+int i;
+	fp = fopen(filename, "w");
+	if(fp == NULL)
+	{
+		//printf("ああああ\n");
+		return;
+	}
+	for(i = start;i<number;i++)
+	{
+		fprintf(fp,"%d,1,%lf,%lf,%lf\n",i,data1[i],data2[i],data3[i]);
+	}
+fclose(fp);
+
+return;
 }
