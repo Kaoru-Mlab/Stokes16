@@ -669,7 +669,7 @@ void SSFM(double *O_data, double *save_deltabeta){
 		/* パラメータの設定 */
 		now_distance = (double)(i + 1) * DIST_H;//相関長に関するパラメータ
 		beta1x = deltabeta[i] / 2.0;
-		beta1y = -deltabeta[i] / 2.0;
+		beta1y = -1.0 * deltabeta[i] / 2.0;
 		deltabeta2 = deltabeta[i] * DIST_H * 2.0 * PI * C_SPEED / CN_WAVE;
 
 		//非線形効果
@@ -834,30 +834,30 @@ void SSFM(double *O_data, double *save_deltabeta){
 		}
 
  		// 偏波回転
-		// if((int)now_distance % 8 == 0)//相関長0.1kmに設定(0.1kmごとに偏波回転する)
-		// {
-  	// 	for(j = 0; j < P_ANALOG; j++)
-    //  	{
-		//
-		// 	x_re = O_data[4*j+0];
-		// 	x_im = O_data[4*j+1];
-		// 	y_re = O_data[4*j+2];
-		// 	y_im = O_data[4*j+3];
-		//
-		//
-		// 	O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) - y_im * sin(theta[i]) * sin(phi[i]);
-		// 	O_data[4*j+1] = x_im * cos(theta[i]) + y_im * sin(theta[i]) * cos(phi[i]) + y_re * sin(theta[i]) * sin(phi[i]);
-		// 	O_data[4*j+2] = y_re * cos(theta[i]) - x_re * sin(theta[i]) * cos(phi[i]) - x_im * sin(theta[i]) * sin(phi[i]);
-		// 	O_data[4*j+3] = y_im * cos(theta[i]) - x_im * sin(theta[i]) * cos(phi[i]) + x_re * sin(theta[i]) * sin(phi[i]);
-		//
-		//
-		// 	/* //スライドのほうの式(Exからどれくらいの位相差があるかをφに設定),どっちも(θとφ)ランダムにしたときにバグる
-		// 	analog_re_x[j] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) + y_im * sin(theta[i]) * sin(phi[i]);
-		// 	analog_im_x[j] = x_im * cos(theta[i]) + y_re * sin(theta[i]) * sin(phi[i]) + y_im * sin(theta[i]) * cos(phi[i]);
-		// 	analog_re_y[j] = -x_re * sin(theta[i]) + y_re * cos(theta[i]) * cos(phi[i]) + y_im * cos(theta[i]) * sin(phi[i]);
-		// 	analog_im_y[j] = -x_im * sin(theta[i]) - y_re * cos(theta[i]) * sin(phi[i]) + y_im * cos(theta[i]) * cos(phi[i]); */
-		// 	}
-		// }
+		if((int)now_distance % 8 == 0)//相関長0.1kmに設定(0.1kmごとに偏波回転する)
+		{
+  		for(j = 0; j < P_ANALOG; j++)
+     	{
+
+			x_re = O_data[4*j+0];
+			x_im = O_data[4*j+1];
+			y_re = O_data[4*j+2];
+			y_im = O_data[4*j+3];
+
+
+			O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) - y_im * sin(theta[i]) * sin(phi[i]);
+			O_data[4*j+1] = x_im * cos(theta[i]) + y_im * sin(theta[i]) * cos(phi[i]) + y_re * sin(theta[i]) * sin(phi[i]);
+			O_data[4*j+2] = y_re * cos(theta[i]) - x_re * sin(theta[i]) * cos(phi[i]) - x_im * sin(theta[i]) * sin(phi[i]);
+			O_data[4*j+3] = y_im * cos(theta[i]) - x_im * sin(theta[i]) * cos(phi[i]) + x_re * sin(theta[i]) * sin(phi[i]);
+
+
+			/* //スライドのほうの式(Exからどれくらいの位相差があるかをφに設定),どっちも(θとφ)ランダムにしたときにバグる
+			analog_re_x[j] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) + y_im * sin(theta[i]) * sin(phi[i]);
+			analog_im_x[j] = x_im * cos(theta[i]) + y_re * sin(theta[i]) * sin(phi[i]) + y_im * sin(theta[i]) * cos(phi[i]);
+			analog_re_y[j] = -x_re * sin(theta[i]) + y_re * cos(theta[i]) * cos(phi[i]) + y_im * cos(theta[i]) * sin(phi[i]);
+			analog_im_y[j] = -x_im * sin(theta[i]) - y_re * cos(theta[i]) * sin(phi[i]) + y_im * cos(theta[i]) * cos(phi[i]); */
+			}
+		}
 
 		/* 		//SSFMcheck
 		//sprintf(filename2,"SSFM_check_NLprosess_x_IFFT_step dist %d m_.csv", i);
