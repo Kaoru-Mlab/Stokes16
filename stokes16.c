@@ -544,12 +544,13 @@ void map(int *bitStream, double *S_digit){
 void RaisedCosine(double *E_digit, double *E_ana){
 	int i;
 	int i_digit, i_internal, i_analog;
-	int stable, raise;
+	int stable, raise, lower;
 	double x_re_vs, x_im_vs, x_re_vg, x_im_vg;
 	double y_re_vs, y_im_vs, y_re_vg, y_im_vg;
 	double a, b;
 	stable = P_PAD / 2.0;
-	raise = P_PAD - stable;
+	raise = (P_PAD - stable) / 2.0;
+	lower = P_PAD - stable -raise;
 
 	for(i_digit = 0; i_digit < N_SYMBOL; i_digit++){
 		x_re_vs = E_digit[4*i_digit + 0];
@@ -579,18 +580,26 @@ void RaisedCosine(double *E_digit, double *E_ana){
 			a = (double)raise / 2.0;
 			b = (2.0*(double)stable + (double)raise ) /4.0;
 
-			if(i_internal < stable){
-				E_ana[4*i_analog+0] = (x_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
-				E_ana[4*i_analog+1] = (x_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
-				E_ana[4*i_analog+2] = (y_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
-				E_ana[4*i_analog+3] = (y_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
+			if(i_internal < lower){
+				E_ana[4*i_analog+0] = (x_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0 * lower))) ;
+				E_ana[4*i_analog+1] = (x_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0* lower))) ;
+				E_ana[4*i_analog+2] = (y_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0* lower))) ;
+				E_ana[4*i_analog+3] = (y_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0* lower))) ;
 			}
 
+			else if(i_internal >= lower && i_internal < lower + stable){
+				E_ana[4*i_analog+0] = 0;
+				E_ana[4*i_analog+1] = 0;
+				E_ana[4*i_analog+2] = 0;
+				E_ana[4*i_analog+3] = 0;
+			}
+			
 			else{
-				E_ana[4*i_analog+0] = (0.0 - x_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_re_vg;
-				E_ana[4*i_analog+1] = (0.0 - x_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_im_vg;
-				E_ana[4*i_analog+2] = (0.0 - y_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_re_vg;
-				E_ana[4*i_analog+3] = (0.0 - y_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_im_vg;
+				E_ana[4*i_analog+0] = x_re_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+				E_ana[4*i_analog+1] = x_im_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+				E_ana[4*i_analog+2] = y_re_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+				E_ana[4*i_analog+3] = y_im_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+
 			}
 		}
 	}
