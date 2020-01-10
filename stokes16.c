@@ -31,9 +31,9 @@
 #define flag_SHOT (1) 	//ショット雑音on off
 #define flag_THERMAL (1) //熱雑音フラグ
 
-#define STEP_COEF   (0.1)
+double	STEP_COEF;
 #define STEP_MIN	(1)
-#define STEP_MAX	(1)
+#define STEP_MAX	(4)
 #define TAP_MIN		(1)
 #define TAP_MAX		(1)
 #define SFT_MIN		(0)
@@ -107,6 +107,7 @@ int main()
 	end = 5;				//////変えた
 	double* ber_stock = (double*)malloc(sizeof(double) * N_SYMBOL);
 	int a=0;
+	double s=0;
 	int loop;
 	int loop_end = 2;					//変えた
 	double progress;
@@ -119,231 +120,235 @@ int main()
 	//int PMD_SEED;
 	char* filename = (char*)malloc(sizeof(char)*1024);
 
-	//サンプル点ずらしループ(aループ)
-	for(a = 0 ; a < 1 ; a++){					//変えた
-		printf("a loop ok\n");
+	//STEP_COEFずらしループ(sループ)
+	for(s = 0.05; s <= 0.1; s = s + 0.05){
+		printf("STEP_COEF: %f\n",s);
+		//サンプル点ずらしループ(aループ)
+		for(a = 0 ; a < 1 ; a++){					//変えた
+			printf("a loop ok\n");
 
-		//伝送距離ずらしループ(kループ)
-		for(k = 0;k<end;k++){
-			printf("k loop ok\n");
-
-
-			dBm = (5.0 * (double)k) - 20.0; //入射パワー[dBm]
-			POWER_LAUNCH = ((1.0e-3) * pow(10.0,dBm/10.0));	//[W]
-			S0 = POWER_LAUNCH * 1000; //[mW]
-
-			int i,j;
-			FILE* fp;
-			int bitStream[N_BIT];
-			int seed = 1;
-			double* S_parameter_tx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
-			double* S_parameter_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
-			double* S_normaled_preFIR_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
-			double* fil_S = (double*)malloc(sizeof(double)* N_SYMBOL *4);
-			double* fil_S_nomaled = (double*)malloc(sizeof(double)* N_SYMBOL *4);
-			double* S_FIRed_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
-			double* S_FIRed_nomaled_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
-			double* S_FIRed_DATA = (double*)malloc(sizeof(double)* DATA_SYMBOL *4);
-			double* S_FIRed_DATA_nomaled = (double*)malloc(sizeof(double)* DATA_SYMBOL *4);
-			double* E_sym = (double*)malloc(sizeof(double) * N_SYMBOL *4);								//xy偏波パラメータ　0~1:Exre,Exim,Eyre,Eyim
-			double* E_analog = (double*)malloc(sizeof(double) * P_ANALOG * 4);
-			double* O_analog = (double*)malloc(sizeof(double) * P_ANALOG * 4);
-			double* E_analog_rx = (double*)malloc(sizeof(double) * P_ANALOG * 4);
-			double* S_analog_rx = (double*)malloc(sizeof(double) * P_ANALOG * 4);
-			double* E_sym_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
-			double* S_temp_nomaled = (double*)malloc(sizeof(double) * N_SYMBOL *4);
-			double* Sana_temp_nomaled = (double*)malloc(sizeof(double)* P_ANALOG *4);
-			int bit;
-			double rxdigit_x_re[N_SYMBOL],rxdigit_x_im[N_SYMBOL],rxdigit_y_re[N_SYMBOL],rxdigit_y_im[N_SYMBOL];								//受信シンボル
-			double y[N_SYMBOL];
-			double rxdigit_y, rxdigit_x;																															//受信x,yパワー
-			double power_rx=0.0;																																		//受信パワー
+			//伝送距離ずらしループ(kループ)
+			for(k = 0;k<end;k++){
+				printf("k loop ok\n");
 
 
-			double* filter = (double*)malloc(sizeof(double) * P_ANALOG); //フィルター配列
+				dBm = (5.0 * (double)k) - 20.0; //入射パワー[dBm]
+				POWER_LAUNCH = ((1.0e-3) * pow(10.0,dBm/10.0));	//[W]
+				S0 = POWER_LAUNCH * 1000; //[mW]
 
-			double optical_re[P_ANALOG], optical_im[P_ANALOG];
-			double power_dsp_x,power_dsp_y;			//電圧信号の平均パワー
-			double power_adjust_x,power_adjust_y;		//パワー変換係数α
-			double power_adjust;
+				int i,j;
+				FILE* fp;
+				int bitStream[N_BIT];
+				int seed = 1;
+				double* S_parameter_tx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+				double* S_parameter_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+				double* S_normaled_preFIR_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+				double* fil_S = (double*)malloc(sizeof(double)* N_SYMBOL *4);
+				double* fil_S_nomaled = (double*)malloc(sizeof(double)* N_SYMBOL *4);
+				double* S_FIRed_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+				double* S_FIRed_nomaled_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+				double* S_FIRed_DATA = (double*)malloc(sizeof(double)* DATA_SYMBOL *4);
+				double* S_FIRed_DATA_nomaled = (double*)malloc(sizeof(double)* DATA_SYMBOL *4);
+				double* E_sym = (double*)malloc(sizeof(double) * N_SYMBOL *4);								//xy偏波パラメータ　0~1:Exre,Exim,Eyre,Eyim
+				double* E_analog = (double*)malloc(sizeof(double) * P_ANALOG * 4);
+				double* O_analog = (double*)malloc(sizeof(double) * P_ANALOG * 4);
+				double* E_analog_rx = (double*)malloc(sizeof(double) * P_ANALOG * 4);
+				double* S_analog_rx = (double*)malloc(sizeof(double) * P_ANALOG * 4);
+				double* E_sym_rx = (double*)malloc(sizeof(double) * N_SYMBOL * 4);
+				double* S_temp_nomaled = (double*)malloc(sizeof(double) * N_SYMBOL *4);
+				double* Sana_temp_nomaled = (double*)malloc(sizeof(double)* P_ANALOG *4);
+				int bit;
+				double rxdigit_x_re[N_SYMBOL],rxdigit_x_im[N_SYMBOL],rxdigit_y_re[N_SYMBOL],rxdigit_y_im[N_SYMBOL];								//受信シンボル
+				double y[N_SYMBOL];
+				double rxdigit_y, rxdigit_x;																															//受信x,yパワー
+				double power_rx=0.0;																																		//受信パワー
 
-			double *save_deltabeta = (double*)malloc(sizeof(double)*SSFM_COUNT);
 
-			//FIRフィルタ用の配列
+				double* filter = (double*)malloc(sizeof(double) * P_ANALOG); //フィルター配列
 
-			double fil_s1[N_SYMBOL];
-			double fil_s2[N_SYMBOL];
-			double fil_s3[N_SYMBOL];
-			double AFTER_EVM_1[STEP_NUM][TAP_NUM][SFT_NUM];			// 重ね合わせ後のEVM格納
-			double AFTER_EVM_2[STEP_NUM][TAP_NUM][SFT_NUM];
-			double AFTER_EVM_3[STEP_NUM][TAP_NUM][SFT_NUM];
+				double optical_re[P_ANALOG], optical_im[P_ANALOG];
+				double power_dsp_x,power_dsp_y;			//電圧信号の平均パワー
+				double power_adjust_x,power_adjust_y;		//パワー変換係数α
+				double power_adjust;
 
-			int step_lp,tap_lp,sft_lp;
-			double evm;
-			int rece_bit[DATA_BIT];									// 受信ビット列
-			int error_bit;											//　エラービットの数
-			double BER;
+				double *save_deltabeta = (double*)malloc(sizeof(double)*SSFM_COUNT);
 
-			//雑音定義用関数
-			static int noise_seed = ST_ASE_SEED;
+				//FIRフィルタ用の配列
 
-			//BER loop
-			for(loop = 0; loop < loop_end; loop++){
-				progress = ((((double)a * (double)k * (double)loop_end)+((double)k * (double)loop_end) + (double)loop + 1.0) / ((double)end * (double)loop_end) * 17.0) * 100;
-				printf("Progress Status : %.2f%%\n", progress);
+				double fil_s1[N_SYMBOL];
+				double fil_s2[N_SYMBOL];
+				double fil_s3[N_SYMBOL];
+				double AFTER_EVM_1[STEP_NUM][TAP_NUM][SFT_NUM];			// 重ね合わせ後のEVM格納
+				double AFTER_EVM_2[STEP_NUM][TAP_NUM][SFT_NUM];
+				double AFTER_EVM_3[STEP_NUM][TAP_NUM][SFT_NUM];
 
-				printf("loop ok %d\n",loop);
+				int step_lp,tap_lp,sft_lp;
+				double evm;
+				int rece_bit[DATA_BIT];									// 受信ビット列
+				int error_bit;											//　エラービットの数
+				double BER;
 
-				map(bitStream, S_parameter_tx);								//送信波形作成
-					strcpy(filename,"01_tx_Stokes.csv");
-					CSV_5(filename,N_SYMBOL,S_parameter_tx);
-				StoE(S_parameter_tx, E_sym);
-					strcpy(filename,"02_tx_symbol.csv");
-					CSV_5(filename,N_SYMBOL,E_sym);
-				RaisedCosine(E_sym, E_analog);							//RC関数
-					strcpy(filename,"03_tx_analog.csv");
-					CSV_5(filename,P_ANALOG,E_analog);
-				EtoO(E_analog,O_analog);
-					strcpy(filename,"04tx_optical.csv");
-					CSV_5(filename,P_ANALOG,O_analog);
+				//雑音定義用関数
+				static int noise_seed = ST_ASE_SEED;
 
-				//伝送路
-				SSFM(O_analog, save_deltabeta);
-					strcpy(filename,"05_txSSFMed_optical.csv");
-					CSV_5(filename,P_ANALOG,O_analog);
+				//BER loop
+				for(loop = 0; loop < loop_end; loop++){
+					progress = ((((double)a * (double)k * (double)loop_end)+((double)k * (double)loop_end) + (double)loop + 1.0) / ((double)end * (double)loop_end) * 17.0) * 100;
+					printf("Progress Status : %.2f%%\n", progress);
 
-				//受信部
-				//光カプラ
-				coupler(O_analog);
-				//ショット雑音
-				SHOTnoise(O_analog,noise_seed,flag_SHOT);
+					printf("loop ok %d\n",loop);
 
-				//受光感度の計算[W]to[A]
-				res_sen(O_analog,E_analog_rx);
-					strcpy(filename,"06_rx_analog.csv");
-					CSV_5(filename,P_ANALOG,E_analog_rx);
+					map(bitStream, S_parameter_tx);								//送信波形作成
+						strcpy(filename,"01_tx_Stokes.csv");
+						CSV_5(filename,N_SYMBOL,S_parameter_tx);
+					StoE(S_parameter_tx, E_sym);
+						strcpy(filename,"02_tx_symbol.csv");
+						CSV_5(filename,N_SYMBOL,E_sym);
+					RaisedCosine(E_sym, E_analog);							//RC関数
+						strcpy(filename,"03_tx_analog.csv");
+						CSV_5(filename,P_ANALOG,E_analog);
+					EtoO(E_analog,O_analog);
+						strcpy(filename,"04tx_optical.csv");
+						CSV_5(filename,P_ANALOG,O_analog);
 
-				//偏波パラからストークスパラメータ
-				EtoS(E_analog_rx,S_analog_rx);
-					strcpy(filename,"07_rx_StokesAnalog.csv");
-					CSV_5(filename,P_ANALOG,S_analog_rx);
-					Stokes_nomal(S_analog_rx,Sana_temp_nomaled,P_ANALOG);
-					strcpy(filename,"07_2_rx_StokesAnalog.csv");
-					CSV_5(filename,P_ANALOG,Sana_temp_nomaled);
+					//伝送路
+					SSFM(O_analog, save_deltabeta);
+						strcpy(filename,"05_txSSFMed_optical.csv");
+						CSV_5(filename,P_ANALOG,O_analog);
 
-				//熱雑音
-				THERMALnoise(S_analog_rx,noise_seed,flag_THERMAL);
-				if(flag_THERMAL == 1){
-					strcpy(filename,"08_rxTHERMALed_StokesAnalog.csv");
-					CSV_5(filename,P_ANALOG,S_analog_rx);
-					Stokes_nomal(S_analog_rx,Sana_temp_nomaled,P_ANALOG);
-					strcpy(filename,"08_2_rxTHERMALed_StokesAnalog.csv");
-					CSV_5(filename,DATA_SYMBOL,Sana_temp_nomaled);
-					//catch_Symbolの範囲をプロットする
-					if(k==0)catchArea(Sana_temp_nomaled);
-				}
+					//受信部
+					//光カプラ
+					coupler(O_analog);
+					//ショット雑音
+					SHOTnoise(O_analog,noise_seed,flag_SHOT);
 
-				//サンプリング(a点だけずらす)
-				Sample(S_analog_rx, S_parameter_rx,a);
-					strcpy(filename,"09_rx_StokesSymbol.csv");
-					CSV_5(filename,N_SYMBOL,S_parameter_rx);
+					//受光感度の計算[W]to[A]
+					res_sen(O_analog,E_analog_rx);
+						strcpy(filename,"06_rx_analog.csv");
+						CSV_5(filename,P_ANALOG,E_analog_rx);
 
-				//規格化
-				Stokes_nomal(S_parameter_rx, S_normaled_preFIR_rx, N_SYMBOL);
-					strcpy(filename,"10_rx_normaledStokes_preFIR.csv");
-					CSV_5(filename,N_SYMBOL,S_normaled_preFIR_rx);
+					//偏波パラからストークスパラメータ
+					EtoS(E_analog_rx,S_analog_rx);
+						strcpy(filename,"07_rx_StokesAnalog.csv");
+						CSV_5(filename,P_ANALOG,S_analog_rx);
+						Stokes_nomal(S_analog_rx,Sana_temp_nomaled,P_ANALOG);
+						strcpy(filename,"07_2_rx_StokesAnalog.csv");
+						CSV_5(filename,P_ANALOG,Sana_temp_nomaled);
 
-				//FIR filter
-				for(step_lp = STEP_MIN; step_lp <= STEP_MAX; step_lp++){
-					for(tap_lp = TAP_MIN; tap_lp <= TAP_MAX; tap_lp++){
-						for(sft_lp = SFT_MIN; sft_lp <= SFT_MAX; sft_lp++){
-							LMS_STEP = (double)step_lp * STEP_COEF;
-							LMS_TAP = tap_lp;
-							SFT_SYMBOL = sft_lp;
-
-							printf("STEP: %.2f, TAP: %d, SFT: %d\n",LMS_STEP,tap_lp,sft_lp);
-
-							memcpy(fil_S, S_parameter_rx, sizeof(double) * N_SYMBOL *4);
-
-							FIR_filter(fil_S, S_parameter_tx);
-						}
+					//熱雑音
+					THERMALnoise(S_analog_rx,noise_seed,flag_THERMAL);
+					if(flag_THERMAL == 1){
+						strcpy(filename,"08_rxTHERMALed_StokesAnalog.csv");
+						CSV_5(filename,P_ANALOG,S_analog_rx);
+						Stokes_nomal(S_analog_rx,Sana_temp_nomaled,P_ANALOG);
+						strcpy(filename,"08_2_rxTHERMALed_StokesAnalog.csv");
+						CSV_5(filename,DATA_SYMBOL,Sana_temp_nomaled);
+						//catch_Symbolの範囲をプロットする
+						if(k==0)catchArea(Sana_temp_nomaled);
 					}
-					printf("step:%d\n",step_lp);
+
+					//サンプリング(a点だけずらす)
+					Sample(S_analog_rx, S_parameter_rx,a);
+						strcpy(filename,"09_rx_StokesSymbol.csv");
+						CSV_5(filename,N_SYMBOL,S_parameter_rx);
+
+					//規格化
+					Stokes_nomal(S_parameter_rx, S_normaled_preFIR_rx, N_SYMBOL);
+						strcpy(filename,"10_rx_normaledStokes_preFIR.csv");
+						CSV_5(filename,N_SYMBOL,S_normaled_preFIR_rx);
+
+					//FIR filter
+					for(step_lp = STEP_MIN; step_lp <= STEP_MAX; step_lp++){
+						for(tap_lp = TAP_MIN; tap_lp <= TAP_MAX; tap_lp++){
+							for(sft_lp = SFT_MIN; sft_lp <= SFT_MAX; sft_lp++){
+								LMS_STEP = (double)step_lp * STEP_COEF;
+								LMS_TAP = tap_lp;
+								SFT_SYMBOL = sft_lp;
+
+								printf("STEP: %.2f, TAP: %d, SFT: %d\n",LMS_STEP,tap_lp,sft_lp);
+
+								memcpy(fil_S, S_normaled_preFIR_rx, sizeof(double) * N_SYMBOL *4);
+
+								FIR_filter(fil_S, S_parameter_tx);
+							}
+						}
+						printf("step:%d\n",step_lp);
+					}
+
+					memcpy(S_FIRed_rx, fil_S, sizeof(double) * N_SYMBOL *4); // W/O FIRにつき、変更。
+						Stokes_nomal(S_FIRed_rx,S_FIRed_nomaled_rx,N_SYMBOL);
+						strcpy(filename,"11_rx_FIRedStokes.csv");
+						CSV_5(filename,N_SYMBOL,S_FIRed_nomaled_rx);
+
+					//データシンボルのみ取り出す
+					DEL_TSYMBOL(S_FIRed_rx);
+						memcpy(S_FIRed_DATA, S_FIRed_rx, sizeof(double) * DATA_SYMBOL *4);
+						Stokes_nomal(S_FIRed_DATA,S_FIRed_DATA_nomaled,DATA_SYMBOL);
+						strcpy(filename,"12_rx_DataSymbol.csv");
+						CSV_5(filename,DATA_SYMBOL,S_FIRed_DATA_nomaled);
+
+					if(loop == loop_end - 1){
+						Stokes_nomal(S_FIRed_DATA,S_FIRed_DATA_nomaled, DATA_SYMBOL);
+						snprintf(filename,1024,"13_Sift_%d,TR_%d,step_%.2f_%.1fkm_%.1fdBm.csv",a,TR_SYMBOL,LMS_STEP,DIST_Z/1000.0,dBm);
+						CSV_5(filename,DATA_SYMBOL,S_FIRed_DATA_nomaled);
+					}
+
+
+
+
+					//ストークスから便と列に直し、エラービットを数える
+					catch_Symbol(S_FIRed_DATA_nomaled,rece_bit,DATA_SYMBOL);
+
+					error_bit += calc_error(bitStream, rece_bit);
+					printf("error bit : %d\n",error_bit);
+
 				}
 
-				memcpy(S_FIRed_rx, fil_S, sizeof(double) * N_SYMBOL *4); // W/O FIRにつき、変更。
-					Stokes_nomal(S_FIRed_rx,S_FIRed_nomaled_rx,N_SYMBOL);
-					strcpy(filename,"11_rx_FIRedStokes.csv");
-					CSV_5(filename,N_SYMBOL,S_FIRed_nomaled_rx);
-
-				//データシンボルのみ取り出す
-				DEL_TSYMBOL(S_FIRed_rx);
-					memcpy(S_FIRed_DATA, S_FIRed_rx, sizeof(double) * DATA_SYMBOL *4);
-					Stokes_nomal(S_FIRed_DATA,S_FIRed_DATA_nomaled,DATA_SYMBOL);
-					strcpy(filename,"12_rx_DataSymbol.csv");
-					CSV_5(filename,DATA_SYMBOL,S_FIRed_DATA_nomaled);
-
-				if(loop == loop_end - 1){
-					Stokes_nomal(S_FIRed_DATA,S_FIRed_DATA_nomaled, DATA_SYMBOL);
-					snprintf(filename,1024,"13_Sift_%d,TR_%d,step_%.2f_%.1fkm_%.1fdBm.csv",a,TR_SYMBOL,LMS_STEP,DIST_Z/1000.0,dBm);
-					CSV_5(filename,DATA_SYMBOL,S_FIRed_DATA_nomaled);
-				}
+				BER = log10((double)error_bit / (double)(DATA_BIT * (loop_end-1)));
+				printf("logBER : %.2f\n",BER);
 
 
+				//SNRの導出
+				thermal_sigma = sqrt(4.0 * BOLTZMAN * TEMPRATURE * RATE_BAUD / RESISTANCE);
+				sigma_c = thermal_sigma/3;
+				SN_ratio[k] = dBm;
+				printf("SN_ratio[%d] = %lf\n",k,SN_ratio[k]);
 
 
-				//ストークスから便と列に直し、エラービットを数える
-				catch_Symbol(S_FIRed_DATA_nomaled,rece_bit,DATA_SYMBOL);
+				//BERの格納
+				ber_stock[k] = BER;
+				evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
+				// evm = 0.0;
+				// evm_sum = 0.0;
 
-				error_bit += calc_error(bitStream, rece_bit);
-				printf("error bit : %d\n",error_bit);
-
-			}
-
-			BER = log10((double)error_bit / (double)(DATA_BIT * (loop_end-1)));
-			printf("logBER : %.2f\n",BER);
-
-
-			//SNRの導出
-			thermal_sigma = sqrt(4.0 * BOLTZMAN * TEMPRATURE * RATE_BAUD / RESISTANCE);
-			sigma_c = thermal_sigma/3;
-			SN_ratio[k] = dBm;
-			printf("SN_ratio[%d] = %lf\n",k,SN_ratio[k]);
-
-
-			//BERの格納
-			ber_stock[k] = BER;
-			evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
-			// evm = 0.0;
-			// evm_sum = 0.0;
-
-			free(S_parameter_tx);
-			free(S_parameter_rx);
-			free(S_normaled_preFIR_rx);
-			free(S_FIRed_rx);
-			free(S_FIRed_nomaled_rx);
-			free(S_FIRed_DATA);
-			free(S_FIRed_DATA_nomaled);
-			free(fil_S);
-			free(fil_S_nomaled);
-			free(E_sym);
-			free(E_analog);
-			free(O_analog);
-			free(E_analog_rx);
-			free(E_sym_rx);
-			free(filter);
-			free(save_deltabeta);
-			free(S_temp_nomaled);
-			free(Sana_temp_nomaled);
+				free(S_parameter_tx);
+				free(S_parameter_rx);
+				free(S_normaled_preFIR_rx);
+				free(S_FIRed_rx);
+				free(S_FIRed_nomaled_rx);
+				free(S_FIRed_DATA);
+				free(S_FIRed_DATA_nomaled);
+				free(fil_S);
+				free(fil_S_nomaled);
+				free(E_sym);
+				free(E_analog);
+				free(O_analog);
+				free(E_analog_rx);
+				free(E_sym_rx);
+				free(filter);
+				free(save_deltabeta);
+				free(S_temp_nomaled);
+				free(Sana_temp_nomaled);
 
 
-			//エラービットの初期化
-			error_bit = 0.0;
-		}//kループの閉じ
-		snprintf(filename,1024,"%dkm_Sift_%d,BER_result.csv",(int)DIST_Z/1000,a);
-		CSV_6(k,0,SN_ratio,ber_stock,evm_ave,filename);
+				//エラービットの初期化
+				error_bit = 0.0;
+			}//kループの閉じ
+			snprintf(filename,1024,"%dkm_Sift_%d,BER_result.csv",(int)DIST_Z/1000,a);
+			CSV_6(k,0,SN_ratio,ber_stock,evm_ave,filename);
 
-	}//aループの閉じ
+		}//aループの閉じ
+	}//sループ閉じ
 
 
 	free(filename);
@@ -575,17 +580,17 @@ void RaisedCosine(double *E_digit, double *E_ana){
 			b = (2.0*(double)stable + (double)raise ) /4.0;
 
 			if(i_internal < stable){
-				E_ana[4*i_analog+0] = x_re_vs;
-				E_ana[4*i_analog+1] = x_im_vs;
-				E_ana[4*i_analog+2] = y_re_vs;
-				E_ana[4*i_analog+3] = y_im_vs;
+				E_ana[4*i_analog+0] = (x_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
+				E_ana[4*i_analog+1] = (x_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
+				E_ana[4*i_analog+2] = (y_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
+				E_ana[4*i_analog+3] = (y_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) ;
 			}
 
 			else{
-				E_ana[4*i_analog+0] = (x_re_vs - x_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_re_vg;
-				E_ana[4*i_analog+1] = (x_im_vs - x_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_im_vg;
-				E_ana[4*i_analog+2] = (y_re_vs - y_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_re_vg;
-				E_ana[4*i_analog+3] = (y_im_vs - y_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_im_vg;
+				E_ana[4*i_analog+0] = (0.0 - x_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_re_vg;
+				E_ana[4*i_analog+1] = (0.0 - x_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_im_vg;
+				E_ana[4*i_analog+2] = (0.0 - y_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_re_vg;
+				E_ana[4*i_analog+3] = (0.0 - y_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_im_vg;
 			}
 		}
 	}
@@ -616,7 +621,7 @@ void SSFM(double *O_data, double *save_deltabeta){
 	double power_x, power_y; 						//振幅の二乗値
 	double xpower_re,xpower_im,ypower_re,ypower_im; //各偏波のパワー
 	double x_re, x_im, y_re, y_im;
-	double coef,coef0;
+	double coef,coef0x, coef0y;
 	double df,alphaC;								//周波数分解能, ファイバ損失係数
 	double omega, omega2;							//線形効果ω
 	static int noise_seed = ST_ASE_SEED;			// ASE雑音シード
@@ -698,8 +703,9 @@ void SSFM(double *O_data, double *save_deltabeta){
 			Nx = x_re * x_im * y_diff - y_re * y_im * x_diff;
 			Ny = y_re * y_im * x_diff - x_re * x_im * y_diff;
 
-			coef = DIST_H * GAMMA; //h*γ
-			coef0 = (double)DIST_H * (double)GAMMA * power_x;
+			coef = (double)DIST_H * (double)GAMMA; //h*γ
+			coef0x = (double)coef * power_x;
+			coef0y = (double)coef * power_y;
 
 			// パラメトリック効果有りの場合（未整理）
 
@@ -843,21 +849,21 @@ void SSFM(double *O_data, double *save_deltabeta){
 // 			x_im = O_data[4*j+1];
 // 			y_re = O_data[4*j+2];
 // 			y_im = O_data[4*j+3];
-// 
-// 
+//
+//
 // 			O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) -1.0 * y_im * sin(theta[i]) * sin(phi[i]);
 // 			O_data[4*j+1] = x_im * cos(theta[i]) + y_im * sin(theta[i]) * cos(phi[i]) + y_re * sin(theta[i]) * sin(phi[i]);
 // 			O_data[4*j+2] = y_re * cos(theta[i]) -1.0 * x_re * sin(theta[i]) * cos(phi[i]) -1.0 * x_im * sin(theta[i]) * sin(phi[i]);
 // 			O_data[4*j+3] = y_im * cos(theta[i]) -1.0 * x_im * sin(theta[i]) * cos(phi[i]) + x_re * sin(theta[i]) * sin(phi[i]);
-// 			
-// 
-// 
+//
+//
+//
 // 			/* //スライドのほうの式(Exからどれくらいの位相差があるかをφに設定),どっちも(θとφ)ランダムにしたときにバグる
 // 			O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) + y_im * sin(theta[i]) * sin(phi[i]);
 // 			O_data[4*j+1] = x_im * cos(theta[i]) + y_re * sin(theta[i]) * sin(phi[i]) + y_im * sin(theta[i]) * cos(phi[i]);
 // 			O_data[4*j+2] = -1.0 * x_re * sin(theta[i]) + y_re * cos(theta[i]) * cos(phi[i]) + y_im * cos(theta[i]) * sin(phi[i]);
 // 			O_data[4*j+3] = -1.0 * x_im * sin(theta[i]) -1.0 * y_re * cos(theta[i]) * sin(phi[i]) + y_im * cos(theta[i]) * cos(phi[i]); */
-// 			} 
+// 			}
 // 		}
 
 		/* 		//SSFMcheck
@@ -1152,8 +1158,6 @@ void THERMALnoise(double *S_data, int noise_seed, int flag){
 }
 
 int FIR_filter(double *S_aft, double *S_pre){
-	return 0;
-	printf("hello! its return error!!\nHAHA!!\n");
 
 	int i,j,k;
 	double dpwr_x, dpwr_y;
