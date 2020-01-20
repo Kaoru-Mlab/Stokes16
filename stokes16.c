@@ -668,8 +668,8 @@ void SSFM(double *O_data, double *save_deltabeta){
 		save_deltabeta[i] = deltabeta[i];
 		phi[i] = deltabeta[i] * DIST_H * 2.0 * PI * C_SPEED / CN_WAVE;
 		//phi[i] = 0.0;//群速度遅延に関係
-		theta[i] =0.0;//PI/4.0;//軸の回転に関係
-		//theta[i] = ((PI / 50.0) * ((double)rand() / ((double)RAND_MAX + 1) * 101.0) - 50.0);
+		//theta[i] =0.0;//PI/4.0;//軸の回転に関係
+		theta[i] = ((PI / 50.0) * ((double)rand(time(NULL)) / ((double)RAND_MAX + 1) * 101.0) - 50.0);
 		printf("deltabeta: %f, phi: %f, theta: %f, \n",deltabeta[i],phi[i],theta[i]);
 	}
 	printf("rand(): %d, RAND_MAX: %d\n",rand(),RAND_MAX);
