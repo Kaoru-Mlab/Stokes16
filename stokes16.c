@@ -24,18 +24,18 @@
 #define ROLLOFF_FACTOR_RO (2)
 #define BAND_RATE_ROLLOFF (0.05)
 
-#define DIST_Z	(2.0E+3)
+#define DIST_Z	(2.0E+2)
 #define DIST_H	(1.0E+2)
 #define SSFM_COUNT	((int)DIST_Z) / ((int)DIST_H)
 #define SENSITIVITY	(0.6)
 #define flag_SHOT (1) 	//ショット雑音on off
 #define flag_THERMAL (1) //熱雑音フラグ
 
-#define STEP_COEF   (0.1)
+double	STEP_COEF;
 #define STEP_MIN	(1)
-#define STEP_MAX	(1)
+#define STEP_MAX	(4)
 #define TAP_MIN		(1)
-#define TAP_MAX		(1)
+#define TAP_MAX		(3)
 #define SFT_MIN		(0)
 #define SFT_MAX		(0)				/////////ここ変えた
 
@@ -104,9 +104,11 @@ int main()
 {
 	printf(" main ok\n DIST: %.2e\n flag_SHOT: %d\n flag_THERMAL: %d\n",DIST_Z,flag_SHOT,flag_THERMAL);
 	int end,k;
-	end = 5;				//////変えた
-	double* ber_stock = (double*)malloc(sizeof(double) * N_SYMBOL);
+	end = 5;				//変えた kの終わり
+	s_end = 1000 		//sのおわり
+	double* ber_stock = (double*)malloc(sizeof(double) * end * s_end);
 	int a=0;
+	double s=0;
 	int loop;
 	int loop_end = 2;					//変えた
 	double progress;
@@ -116,17 +118,17 @@ int main()
 	double SN_ratio[100];
 	double thermal_sigma;
 	double sigma_c;
+
 	//int PMD_SEED;
 	char* filename = (char*)malloc(sizeof(char)*1024);
 
-	//サンプル点ずらしループ(aループ)
-	for(a = 0 ; a < 1 ; a++){					//変えた
-		printf("a loop ok\n");
-
-		//伝送距離ずらしループ(kループ)
-		for(k = 0;k<end;k++){
-			printf("k loop ok\n");
-
+	//dBmずらしループ(kループ)
+	for(k = 0;k<end;k++){
+		printf("k loop ok\n");
+		//STEP_COEFずらしループ(sループ)
+		for(s = 0; s < s_end; s++){
+			printf("STEP_COEF: %f\n",s*E-4);
+			STEP_COEF = s * 1.0E-4;
 
 			dBm = (5.0 * (double)k) - 20.0; //入射パワー[dBm]
 			POWER_LAUNCH = ((1.0e-3) * pow(10.0,dBm/10.0));	//[W]
@@ -189,9 +191,6 @@ int main()
 
 			//BER loop
 			for(loop = 0; loop < loop_end; loop++){
-				progress = ((((double)a * (double)k * (double)loop_end)+((double)k * (double)loop_end) + (double)loop + 1.0) / ((double)end * (double)loop_end) * 17.0) * 100;
-				printf("Progress Status : %.2f%%\n", progress);
-
 				printf("loop ok %d\n",loop);
 
 				map(bitStream, S_parameter_tx);								//送信波形作成
@@ -263,7 +262,7 @@ int main()
 
 							printf("STEP: %.2f, TAP: %d, SFT: %d\n",LMS_STEP,tap_lp,sft_lp);
 
-							memcpy(fil_S, S_parameter_rx, sizeof(double) * N_SYMBOL *4);
+							memcpy(fil_S, S_normaled_preFIR_rx, sizeof(double) * N_SYMBOL *4);
 
 							FIR_filter(fil_S, S_parameter_tx);
 						}
@@ -285,7 +284,7 @@ int main()
 
 				if(loop == loop_end - 1){
 					Stokes_nomal(S_FIRed_DATA,S_FIRed_DATA_nomaled, DATA_SYMBOL);
-					snprintf(filename,1024,"13_Sift_%d,TR_%d,step_%.2f_%.1fkm_%.1fdBm.csv",a,TR_SYMBOL,LMS_STEP,DIST_Z/1000.0,dBm);
+					snprintf(filename,1024,"13_Sift_%d,TR_%d,step_%.3f_%.1fkm_%.1fdBm.csv",a,TR_SYMBOL,LMS_STEP,DIST_Z/1000.0,dBm);
 					CSV_5(filename,DATA_SYMBOL,S_FIRed_DATA_nomaled);
 				}
 
@@ -312,7 +311,7 @@ int main()
 
 
 			//BERの格納
-			ber_stock[k] = BER;
+			ber_stock[s] = BER;
 			evm_ave[k] = evm_sum / ((double)loop_end - 1.0);
 			// evm = 0.0;
 			// evm_sum = 0.0;
@@ -339,11 +338,10 @@ int main()
 
 			//エラービットの初期化
 			error_bit = 0.0;
-		}//kループの閉じ
-		snprintf(filename,1024,"%dkm_Sift_%d,BER_result.csv",(int)DIST_Z/1000,a);
-		CSV_6(k,0,SN_ratio,ber_stock,evm_ave,filename);
-
-	}//aループの閉じ
+		}//sループの閉じ
+		snprintf(filename,1024,"%dkm_%ddBm_Step_coef_%f,BER_result.csv",(int)DIST_Z/1000,(int)dBm,s);
+		CSV_6(s,0,SN_ratio,ber_stock,evm_ave,filename);
+	}//kループ閉じ
 
 
 	free(filename);
@@ -539,12 +537,13 @@ void map(int *bitStream, double *S_digit){
 void RaisedCosine(double *E_digit, double *E_ana){
 	int i;
 	int i_digit, i_internal, i_analog;
-	int stable, raise;
+	int stable, raise, lower;
 	double x_re_vs, x_im_vs, x_re_vg, x_im_vg;
 	double y_re_vs, y_im_vs, y_re_vg, y_im_vg;
 	double a, b;
 	stable = P_PAD / 2.0;
-	raise = P_PAD - stable;
+	raise = (P_PAD - stable) / 2.0;
+	lower = P_PAD - stable -raise;
 
 	for(i_digit = 0; i_digit < N_SYMBOL; i_digit++){
 		x_re_vs = E_digit[4*i_digit + 0];
@@ -574,18 +573,26 @@ void RaisedCosine(double *E_digit, double *E_ana){
 			a = (double)raise / 2.0;
 			b = (2.0*(double)stable + (double)raise ) /4.0;
 
-			if(i_internal < stable){
-				E_ana[4*i_analog+0] = x_re_vs;
-				E_ana[4*i_analog+1] = x_im_vs;
-				E_ana[4*i_analog+2] = y_re_vs;
-				E_ana[4*i_analog+3] = y_im_vs;
+			if(i_internal < lower){
+				E_ana[4*i_analog+0] = (x_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0 * lower))) ;
+				E_ana[4*i_analog+1] = (x_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0* lower))) ;
+				E_ana[4*i_analog+2] = (y_re_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0* lower))) ;
+				E_ana[4*i_analog+3] = (y_im_vs - 0.0)*(0.5 - 0.5*cos(PI*((double)i_internal - lower) / (2.0* lower))) ;
+			}
+
+			else if(i_internal >= lower && i_internal < lower + stable){
+				E_ana[4*i_analog+0] = 0;
+				E_ana[4*i_analog+1] = 0;
+				E_ana[4*i_analog+2] = 0;
+				E_ana[4*i_analog+3] = 0;
 			}
 
 			else{
-				E_ana[4*i_analog+0] = (x_re_vs - x_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_re_vg;
-				E_ana[4*i_analog+1] = (x_im_vs - x_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + x_im_vg;
-				E_ana[4*i_analog+2] = (y_re_vs - y_re_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_re_vg;
-				E_ana[4*i_analog+3] = (y_im_vs - y_im_vg)*(0.5 + 0.5*cos(PI*((double)i_internal - 2.0*b + a) / (2.0*a))) + y_im_vg;
+				E_ana[4*i_analog+0] = x_re_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+				E_ana[4*i_analog+1] = x_im_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+				E_ana[4*i_analog+2] = y_re_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+				E_ana[4*i_analog+3] = y_im_vg*(0.5 - 0.5*cos(PI*((double)i_internal - lower - stable) / (2.0*raise))) ;
+
 			}
 		}
 	}
@@ -616,7 +623,7 @@ void SSFM(double *O_data, double *save_deltabeta){
 	double power_x, power_y; 						//振幅の二乗値
 	double xpower_re,xpower_im,ypower_re,ypower_im; //各偏波のパワー
 	double x_re, x_im, y_re, y_im;
-	double coef,coef0;
+	double coef,coef0x, coef0y;
 	double df,alphaC;								//周波数分解能, ファイバ損失係数
 	double omega, omega2;							//線形効果ω
 	static int noise_seed = ST_ASE_SEED;			// ASE雑音シード
@@ -661,12 +668,14 @@ void SSFM(double *O_data, double *save_deltabeta){
 		save_deltabeta[i] = deltabeta[i];
 		phi[i] = deltabeta[i] * DIST_H * 2.0 * PI * C_SPEED / CN_WAVE;
 		//phi[i] = 0.0;//群速度遅延に関係
-		//theta[i] = 0.0;//PI/4.0;//軸の回転に関係
-		theta[i] = ((PI / 50.0) * ((double)rand() / ((double)RAND_MAX + 1) * 101.0) - 50.0);
+		theta[i] =0.0;//PI/4.0;//軸の回転に関係
+		//theta[i] = ((PI / 50.0) * ((double)rand() / ((double)RAND_MAX + 1) * 101.0) - 50.0);
+		printf("deltabeta: %f, phi: %f, theta: %f, \n",deltabeta[i],phi[i],theta[i]);
 	}
+	printf("rand(): %d, RAND_MAX: %d\n",rand(),RAND_MAX);
+
 
 	for (i = 0; i < (int)SSFM_COUNT; i++){
-		printf("SSFMcheck\n");
 		/* パラメータの設定 */
 		now_distance = (double)(i + 1) * DIST_H;//相関長に関するパラメータ
 		beta1x = deltabeta[i] / 2.0;
@@ -698,8 +707,9 @@ void SSFM(double *O_data, double *save_deltabeta){
 			Nx = x_re * x_im * y_diff - y_re * y_im * x_diff;
 			Ny = y_re * y_im * x_diff - x_re * x_im * y_diff;
 
-			coef = DIST_H * GAMMA; //h*γ
-			coef0 = (double)DIST_H * (double)GAMMA * power_x;
+			coef = (double)DIST_H * (double)GAMMA; //h*γ
+			coef0x = (double)coef * power_x;
+			coef0y = (double)coef * power_y;
 
 			// パラメトリック効果有りの場合（未整理）
 
@@ -834,31 +844,31 @@ void SSFM(double *O_data, double *save_deltabeta){
 			O_data[4*j+3] = out[j][1];
 		}
 
- 		// 偏波回転
-// 		if((int)now_distance % 100 == 0)//相関長0.1kmに設定(0.1kmごとに偏波回転する)
-// 		{
-//   		for(j = 0; j < P_ANALOG; j++){
-//
-// 			x_re = O_data[4*j+0];
-// 			x_im = O_data[4*j+1];
-// 			y_re = O_data[4*j+2];
-// 			y_im = O_data[4*j+3];
-// 
-// 
-// 			O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) -1.0 * y_im * sin(theta[i]) * sin(phi[i]);
-// 			O_data[4*j+1] = x_im * cos(theta[i]) + y_im * sin(theta[i]) * cos(phi[i]) + y_re * sin(theta[i]) * sin(phi[i]);
-// 			O_data[4*j+2] = y_re * cos(theta[i]) -1.0 * x_re * sin(theta[i]) * cos(phi[i]) -1.0 * x_im * sin(theta[i]) * sin(phi[i]);
-// 			O_data[4*j+3] = y_im * cos(theta[i]) -1.0 * x_im * sin(theta[i]) * cos(phi[i]) + x_re * sin(theta[i]) * sin(phi[i]);
-// 			
-// 
-// 
-// 			/* //スライドのほうの式(Exからどれくらいの位相差があるかをφに設定),どっちも(θとφ)ランダムにしたときにバグる
-// 			O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) + y_im * sin(theta[i]) * sin(phi[i]);
-// 			O_data[4*j+1] = x_im * cos(theta[i]) + y_re * sin(theta[i]) * sin(phi[i]) + y_im * sin(theta[i]) * cos(phi[i]);
-// 			O_data[4*j+2] = -1.0 * x_re * sin(theta[i]) + y_re * cos(theta[i]) * cos(phi[i]) + y_im * cos(theta[i]) * sin(phi[i]);
-// 			O_data[4*j+3] = -1.0 * x_im * sin(theta[i]) -1.0 * y_re * cos(theta[i]) * sin(phi[i]) + y_im * cos(theta[i]) * cos(phi[i]); */
-// 			} 
-// 		}
+ 		//偏波回転
+		if((int)now_distance % 100 == 0)//相関長0.1kmに設定(0.1kmごとに偏波回転する)
+		{
+  		for(j = 0; j < P_ANALOG; j++){
+
+			x_re = O_data[4*j+0];
+			x_im = O_data[4*j+1];
+			y_re = O_data[4*j+2];
+			y_im = O_data[4*j+3];
+
+
+			O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) - (y_im * sin(theta[i]) * sin(phi[i]));
+			O_data[4*j+1] = x_im * cos(theta[i]) + y_im * sin(theta[i]) * cos(phi[i]) + y_re * sin(theta[i]) * sin(phi[i]);
+			O_data[4*j+2] = y_re * cos(theta[i]) - (x_re * sin(theta[i]) * cos(phi[i])) - (x_im * sin(theta[i]) * sin(phi[i]));
+			O_data[4*j+3] = y_im * cos(theta[i]) - (x_im * sin(theta[i]) * cos(phi[i])) + x_re * sin(theta[i]) * sin(phi[i]);
+
+
+
+			/* //スライドのほうの式(Exからどれくらいの位相差があるかをφに設定),どっちも(θとφ)ランダムにしたときにバグる
+			O_data[4*j+0] = x_re * cos(theta[i]) + y_re * sin(theta[i]) * cos(phi[i]) + y_im * sin(theta[i]) * sin(phi[i]);
+			O_data[4*j+1] = x_im * cos(theta[i]) + y_re * sin(theta[i]) * sin(phi[i]) + y_im * sin(theta[i]) * cos(phi[i]);
+			O_data[4*j+2] = -1.0 * x_re * sin(theta[i]) + y_re * cos(theta[i]) * cos(phi[i]) + y_im * cos(theta[i]) * sin(phi[i]);
+			O_data[4*j+3] = -1.0 * x_im * sin(theta[i]) -1.0 * y_re * cos(theta[i]) * sin(phi[i]) + y_im * cos(theta[i]) * cos(phi[i]); */
+			}
+		}
 
 		/* 		//SSFMcheck
 		//sprintf(filename2,"SSFM_check_NLprosess_x_IFFT_step dist %d m_.csv", i);
@@ -1152,8 +1162,6 @@ void THERMALnoise(double *S_data, int noise_seed, int flag){
 }
 
 int FIR_filter(double *S_aft, double *S_pre){
-	return 0;
-	printf("hello! its return error!!\nHAHA!!\n");
 
 	int i,j,k;
 	double dpwr_x, dpwr_y;
@@ -1212,6 +1220,7 @@ int FIR_filter(double *S_aft, double *S_pre){
 			h1 += (H_11[j] * FIR_S[3*j +0]) + (H_21[j] * FIR_S[3*j +1]) + (H_31[j] * FIR_S[3*j +2]);//最初は0
 			h2 += (H_12[j] * FIR_S[3*j +0]) + (H_22[j] * FIR_S[3*j +1]) + (H_32[j] * FIR_S[3*j +2]);
 			h3 += (H_13[j] * FIR_S[3*j +0]) + (H_23[j] * FIR_S[3*j +1]) + (H_33[j] * FIR_S[3*j +2]);
+			//printf("h1: %lf, H11: %lf\n",h1,H_11[j]);
 		}
 
 		if(i>= SFT_SYMBOL){
@@ -1233,6 +1242,7 @@ int FIR_filter(double *S_aft, double *S_pre){
 				ueS13 = FIR_S[3*j +0] * ue_S[2];
 				ueS23 = FIR_S[3*j +1] * ue_S[2];
 				ueS33 = FIR_S[3*j +2] * ue_S[2];
+				printf("ue_S1: %lf, FIR_S1: %lf\n",ue_S[0],FIR_S[3*j+0]);
 
 				ueS11 /= S0;//規格化
 				ueS12 /= S0;
