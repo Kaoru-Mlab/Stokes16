@@ -699,81 +699,82 @@ void SSFM(double *O_data, double *save_deltabeta){
 		beta1y = -1.0 * deltabeta[i] / 2.0;	//yにかかる群遅延　x,yそれぞれ2分の1ずつ進み,遅れている
 		deltabeta2 = deltabeta[i] * DIST_H * 2.0 * PI * C_SPEED / CN_WAVE;	//[s/m]*[m]*2PI*c/λ　= [rad] (微小距離ごとのPMD[rad])
 
-		//非線形効果
-		for (j = 0; j < P_ANALOG; j++)
-		{
-			x_re = O_data[4*j+0];
-			x_im = O_data[4*j+1];
-			y_re = O_data[4*j+2];
-			y_im = O_data[4*j+3];
+		//
+		// //非線形効果
+		// for (j = 0; j < P_ANALOG; j++)
+		// {
+		// 	x_re = O_data[4*j+0];
+		// 	x_im = O_data[4*j+1];
+		// 	y_re = O_data[4*j+2];
+		// 	y_im = O_data[4*j+3];
+		//
+		// 	xpower_re = x_re * x_re;
+		// 	xpower_im = x_im * x_im;
+		// 	ypower_re = y_re * y_re;
+		// 	ypower_im = y_im * y_im;
+		//
+		// 	power_x = xpower_re + xpower_im; //|A|^2
+		// 	power_y = ypower_re + ypower_im;
+		// 	x_diff = xpower_re - xpower_im;
+		// 	y_diff = ypower_re - ypower_im;
+		//
+		// 	Lx = x_diff * x_diff + 4.0 * xpower_re * xpower_im;
+		// 	Ly = y_diff * y_diff + 4.0 * ypower_re * ypower_im;
+		// 	Mx = x_diff * y_diff + 4.0 * x_re * x_im * y_re * y_im;
+		// 	My = x_diff * y_diff + 4.0 * x_re * x_im * y_re * y_im;
+		// 	Nx = x_re * x_im * y_diff - y_re * y_im * x_diff;
+		// 	Ny = y_re * y_im * x_diff - x_re * x_im * y_diff;
+		//
+		// 	coef = (double)DIST_H * (double)GAMMA; //h*γ
+		// 	coef0x = (double)coef * power_x;
+		// 	coef0y = (double)coef * power_y;
+		//
+		// 	// パラメトリック効果有りの場合（未整理）
+		//
+		// 	// エラー回避用分岐
+		// 	/* if (Lx == 0)
+		// 	{
+		// 	Ex1 = 0;
+		// 	Ex2 = 0;
+		// 	}
+		// 	else
+		// 	{
+		// 	Ex1 = exp(coef * (2.0 / 3.0 * power_x * cos(2.0*deltabeta2*now_distance) * Nx / Lx + 1.0 / 3.0 * power_x * sin(2.0*deltabeta2*now_distance) * Mx / Lx));
+		// 	Ex2 = coef * ((power_x + 2.0 / 3.0 * power_y) - 2.0 / 3.0 * power_x * sin(2.0*deltabeta2*now_distance) * Nx / Lx + 1.0 / 3.0 * power_x * cos(2.0*deltabeta2*now_distance) * Mx / Lx);
+		// 	}
+		//
+		// 	if (Ly == 0)
+		// 	{
+		// 	Ey1 = 0;
+		// 	Ey2 = 0;
+		// 	}
+		// 	else
+		// 	{
+		// 	Ey1 = exp(coef * (2.0 / 3.0 * power_y * cos(2.0*deltabeta2*now_distance) * Ny / Ly + 1.0 / 3.0 * power_y * sin(2.0*deltabeta2*now_distance) * My / Ly));
+		// 	Ey2 = coef * ((power_y + 2.0 / 3.0 * power_x) + 2.0 / 3.0 * power_y * sin(2.0*deltabeta2*now_distance) * Ny / Ly + 1.0 / 3.0 * power_y * cos(2.0*deltabeta2*now_distance) * My / Ly);
+		// 	}
+		//
+		// 	// 非線形効果の代入
+		// 	analog_re_x[j] = Ex1 * (x_re * cos(Ex2) - x_im * sin(Ex2));
+		// 	analog_im_x[j] = Ex1 * (x_re * sin(Ex2) + x_im * cos(Ex2));
+		// 	analog_re_y[j] = Ey1 * (y_re * cos(Ey2) - y_im * sin(Ey2));
+		// 	analog_im_y[j] = Ey1 * (y_re * sin(Ey2) + y_im * cos(Ey2)); */
+		//
+		// 	/* パラメトリック効果無しの場合 */
+		//  	Ex1 = 0.0;
+		// 	Ex2 = coef * (power_x + 2.0 / 3.0 * power_y);
+		// 	Ey1 = 0.0;
+		// 	Ey2 = coef * (power_y + 2.0 / 3.0 * power_x);
+		//
+		// 	O_data[4*j+0] = (x_re * cos(Ex2)) - (x_im * sin(Ex2));
+		// 	O_data[4*j+1] = (x_re * sin(Ex2)) + (x_im * cos(Ex2));
+		// 	O_data[4*j+2] = (y_re * cos(Ey2)) - (y_im * sin(Ey2));
+		// 	O_data[4*j+3] = (y_re * sin(Ey2)) + (y_im * cos(Ey2));
+		// }
+		//
 
-			xpower_re = x_re * x_re;
-			xpower_im = x_im * x_im;
-			ypower_re = y_re * y_re;
-			ypower_im = y_im * y_im;
-
-			power_x = xpower_re + xpower_im; //|A|^2
-			power_y = ypower_re + ypower_im;
-			x_diff = xpower_re - xpower_im;
-			y_diff = ypower_re - ypower_im;
-
-			Lx = x_diff * x_diff + 4.0 * xpower_re * xpower_im;
-			Ly = y_diff * y_diff + 4.0 * ypower_re * ypower_im;
-			Mx = x_diff * y_diff + 4.0 * x_re * x_im * y_re * y_im;
-			My = x_diff * y_diff + 4.0 * x_re * x_im * y_re * y_im;
-			Nx = x_re * x_im * y_diff - y_re * y_im * x_diff;
-			Ny = y_re * y_im * x_diff - x_re * x_im * y_diff;
-
-			coef = (double)DIST_H * (double)GAMMA; //h*γ
-			coef0x = (double)coef * power_x;
-			coef0y = (double)coef * power_y;
-
-			// パラメトリック効果有りの場合（未整理）
-
-			// エラー回避用分岐
-			/* if (Lx == 0)
-			{
-			Ex1 = 0;
-			Ex2 = 0;
-			}
-			else
-			{
-			Ex1 = exp(coef * (2.0 / 3.0 * power_x * cos(2.0*deltabeta2*now_distance) * Nx / Lx + 1.0 / 3.0 * power_x * sin(2.0*deltabeta2*now_distance) * Mx / Lx));
-			Ex2 = coef * ((power_x + 2.0 / 3.0 * power_y) - 2.0 / 3.0 * power_x * sin(2.0*deltabeta2*now_distance) * Nx / Lx + 1.0 / 3.0 * power_x * cos(2.0*deltabeta2*now_distance) * Mx / Lx);
-			}
-
-			if (Ly == 0)
-			{
-			Ey1 = 0;
-			Ey2 = 0;
-			}
-			else
-			{
-			Ey1 = exp(coef * (2.0 / 3.0 * power_y * cos(2.0*deltabeta2*now_distance) * Ny / Ly + 1.0 / 3.0 * power_y * sin(2.0*deltabeta2*now_distance) * My / Ly));
-			Ey2 = coef * ((power_y + 2.0 / 3.0 * power_x) + 2.0 / 3.0 * power_y * sin(2.0*deltabeta2*now_distance) * Ny / Ly + 1.0 / 3.0 * power_y * cos(2.0*deltabeta2*now_distance) * My / Ly);
-			}
-
-			// 非線形効果の代入
-			analog_re_x[j] = Ex1 * (x_re * cos(Ex2) - x_im * sin(Ex2));
-			analog_im_x[j] = Ex1 * (x_re * sin(Ex2) + x_im * cos(Ex2));
-			analog_re_y[j] = Ey1 * (y_re * cos(Ey2) - y_im * sin(Ey2));
-			analog_im_y[j] = Ey1 * (y_re * sin(Ey2) + y_im * cos(Ey2)); */
-
-			/* パラメトリック効果無しの場合 */
-		 	Ex1 = 0.0;
-			Ex2 = coef * (power_x + 2.0 / 3.0 * power_y);
-			Ey1 = 0.0;
-			Ey2 = coef * (power_y + 2.0 / 3.0 * power_x);
-
-			O_data[4*j+0] = (x_re * cos(Ex2)) - (x_im * sin(Ex2));
-			O_data[4*j+1] = (x_re * sin(Ex2)) + (x_im * cos(Ex2));
-			O_data[4*j+2] = (y_re * cos(Ey2)) - (y_im * sin(Ey2));
-			O_data[4*j+3] = (y_re * sin(Ey2)) + (y_im * cos(Ey2));
-		}
 
 
-
-		/*
 		//SSFMcheck
 		//sprintf(filename2,"SSFM_check_NLprosess_x_NL_step dist %d m_.csv", i);
 		//make_CSV2(P_ANALOG, analog_re_x, analog_im_x, filename2);
@@ -865,7 +866,7 @@ void SSFM(double *O_data, double *save_deltabeta){
 
 
     printf("senkei check\n");
-		*/
+
  		//偏波回転
 		// if((int)now_distance % 100 == 0)//相関長0.1kmに設定(0.1kmごとに偏波回転する)
 		// {
