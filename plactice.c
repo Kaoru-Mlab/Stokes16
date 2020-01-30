@@ -104,12 +104,12 @@ int main()
 {
 	printf(" main ok\n DIST: %.2e\n flag_SHOT: %d\n flag_THERMAL: %d\n",DIST_Z,flag_SHOT,flag_THERMAL);
 	int end,k,s_end;
-	end = 5;				//変えた kの終わり
-	s_end = 500; 		//sのおわり
+	end = 1;				//変えた kの終わり
+	s_end = 3; 		//sのおわり
 	int a=0;
 	int s=0;
 	int loop;
-	int loop_end = 20;					//変えた
+	int loop_end = 2;					//変えた
 	double progress;
 	double evm_sum = 0.0;
 	double evm_ave[100];
@@ -130,7 +130,7 @@ int main()
 		for(s = 1; s <= s_end; s+=50){		//s+=はTAP_MAXと対応
 			STEP_COEF = 1.0E-6;
 
-			dBm = (5.0 * (double)k) - 20.0; //入射パワー[dBm]
+			dBm = (5.0 * (double)k) - 0.0; //入射パワー[dBm]
 			POWER_LAUNCH = ((1.0e-3) * pow(10.0,dBm/10.0));	//[W]
 			S0 = POWER_LAUNCH * 1000; //[mW]
 
@@ -696,7 +696,7 @@ void SSFM(double *O_data, double *save_deltabeta){
 		/* パラメータの設定 */
 		now_distance = (double)(i + 1) * DIST_H;//相関長に関するパラメータ
 		beta1x = deltabeta[i] / 2.0;		//xにかかる群遅延
-		beta1y = -1.0 * deltabeta[i] / 2.0;　//yにかかる群遅延　x,yそれぞれ/2ずつ進み,遅れている
+		beta1y = -1.0 * deltabeta[i] / 2.0;	//yにかかる群遅延　x,yそれぞれ2分の1ずつ進み,遅れている
 		deltabeta2 = deltabeta[i] * DIST_H * 2.0 * PI * C_SPEED / CN_WAVE;	//[s/m]*[m]*2PI*c/λ　= [rad] (微小距離ごとのPMD[rad])
 
 		//非線形効果
@@ -769,6 +769,7 @@ void SSFM(double *O_data, double *save_deltabeta){
 			O_data[4*j+1] = (x_re * sin(Ex2)) + (x_im * cos(Ex2));
 			O_data[4*j+2] = (y_re * cos(Ey2)) - (y_im * sin(Ey2));
 			O_data[4*j+3] = (y_re * sin(Ey2)) + (y_im * cos(Ey2));
+		}
 
 
 
@@ -893,8 +894,8 @@ void SSFM(double *O_data, double *save_deltabeta){
 			O_data[4*j+1] = x_im * cos(theta[i]) + y_re * sin(theta[i]) * sin(phi[i]) + y_im * sin(theta[i]) * cos(phi[i]);
 			O_data[4*j+2] = -1.0 * x_re * sin(theta[i]) + y_re * cos(theta[i]) * cos(phi[i]) + y_im * cos(theta[i]) * sin(phi[i]);
 			O_data[4*j+3] = -1.0 * x_im * sin(theta[i]) -1.0 * y_re * cos(theta[i]) * sin(phi[i]) + y_im * cos(theta[i]) * cos(phi[i]); */
-			}
-		}
+		//	}
+		// }
 
 		/* 		//SSFMcheck
 		//sprintf(filename2,"SSFM_check_NLprosess_x_IFFT_step dist %d m_.csv", i);
@@ -1532,22 +1533,22 @@ void catchArea(double *S_data){
 void CSV_6(int number,int start, double *data1, double *data2 ,double *data3,char *filename)
 {
 
-FILE* fp;
-int i;
-	fp = fopen(filename, "w");
-	if(fp == NULL)
-	{
-		//printf("ああああ\n");
-		return;
-	}
+	FILE* fp;
+	int i;
+		fp = fopen(filename, "w");
+		if(fp == NULL)
+		{
+			//printf("ああああ\n");
+			return;
+		}
 	fprintf(fp,"number,SNR,BER,EVM_AVE\n");
 	for(i = start;i<number;i++)
 	{
 		fprintf(fp,"%d,%lf,%lf,%lf\n",i,data1[i],data2[i],data3[i]);
 	}
-fclose(fp);
+	fclose(fp);
 
-return;
+	return;
 }
 
 void CSV_4(char *name,int num, double *data_3){
